@@ -35,5 +35,12 @@
   },
   "dependencies": {
     "@fontsource/amiri-quran": "^5.3.0"
-  }
+  },
+  "license": "MIT",
+  "author": "Sama Ommy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SamaOmmy/Qur-An.git"
+  },
+  "homepage": "https://github.com/SamaOmmy/Qur-An#readme"
 }

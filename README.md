@@ -52,3 +52,8 @@ They are built from public sources by two scripts; the raw downloads live in `da
 
 Which translations and tafsirs are bundled is listed in `scripts/data-config.js`; add one there and re-run both scripts.
 Audio comes from everyayah.com and is cached under the app's user-data folder (`Offline` tab -> *Open folder*).
+
+## License
+
+The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir and font are
+third-party content under their own terms; see [NOTICE.md](NOTICE.md) for sources and attribution.
