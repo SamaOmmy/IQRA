@@ -102,7 +102,7 @@ const card = (route, title, ar, sub) => `
   </button>`;
 
 // ---------- Pages ----------
-function pageHome() {
+function pageHomeBase() {
   const now = new Date();
   const dn = dayNumber(now);
   const friday = now.getDay() === 5;

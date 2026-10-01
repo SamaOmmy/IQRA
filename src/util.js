@@ -38,7 +38,7 @@ const defaults = {
   view: 'mushaf', readView: 'mushaf', zoom: 1, spread: true, flipAnim: true, arSize: 30, trSize: 16,
   showTr: true, tr1: 'en.sahih', tr2: '', translit: false, wbw: false,
   reciter: RECITERS[0][0], speed: 1, continuous: true,
-  tafsir: Q.tafsirs[0].id, studyOpen: false, studyTab: 'translation', bookmarks: [],
+  favs: [], tafsir: Q.tafsirs[0].id, studyOpen: false, studyTab: 'translation', bookmarks: [],
 };
 const state = { ...defaults, ...loadState() };
 if (!['mushaf', 'verses', 'discover'].includes(state.view)) state.view = state.view === 'pages' ? 'mushaf' : 'verses'; // names from v1
@@ -126,9 +126,9 @@ function firstVerseOfPage(p) {
 }
 
 // ---------- Fonts ----------
-// Scheherazade New (open licence) is always bundled. The KFGQPC fonts are optional extras, see scripts/fetch-fonts.js.
+// Old Madina and Scheherazade New (both open licences) are always bundled. The KFGQPC fonts are optional extras, see scripts/fetch-fonts.js.
 const fontsReady = (async () => {
-  const loads = [document.fonts.load('32px "Scheherazade New"', 'بسم')];
+  const loads = [document.fonts.load('32px "Old Madina"', 'بسم'), document.fonts.load('32px "Scheherazade New"', 'بسم')];
   if (MUSHAF.hafs) {
     const face = new FontFace('UthmanicHafs', 'url(fonts/mushaf/UthmanicHafs.woff2)');
     loads.push(face.load().then((f) => { document.fonts.add(f); document.documentElement.classList.add('hafs'); }).catch(() => {}));

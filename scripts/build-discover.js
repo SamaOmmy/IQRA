@@ -63,3 +63,47 @@ if (nawawi.length < 40) throw new Error('Expected the Forty Hadith');
 write('discover/nawawi.json', nawawi);
 
 console.log(`Discover: ${hisn.length} Hisn categories (${hisn.reduce((n, c) => n + c.items.length, 0)} adhkar), ${azkar.length} morning/evening adhkar, ${nawawi.length} hadith`);
+
+// ---- Hadith library: Arabic from the classical collections, checked against the curated phrase ----
+const curated = require('./hadith-curation');
+const strip = (s) => s.replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[آأإٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+const collections = {};
+const collection = (book) => (collections[book] ||= new Map(read(`ara-${book}.json`).hadiths.map((h) => [h.hadithnumber, h.text])));
+// The text is "chain of narrators, then the Prophet's words in quotation marks". Keep the quoted words, or, where an entry gives
+// explicit "from" / "to" phrases, exactly the stretch between them (matched ignoring diacritics, cut from the original text).
+function stripMap(s) {
+  const map = [];
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (/[ً-ٰٟۖ-ۭـ]/.test(ch)) continue;
+    out += strip(ch);
+    map.push(i);
+  }
+  return { out, map };
+}
+function matnOf(text, c) {
+  if (c.from) {
+    const { out, map } = stripMap(text);
+    const a = out.indexOf(strip(c.from));
+    if (a < 0) throw new Error(c.id + ': "from" phrase not found');
+    const toKey = strip(c.to || c.from);
+    const z = out.indexOf(toKey, a);
+    if (z < 0) throw new Error(c.id + ': "to" phrase not found');
+    return text.slice(map[a], map[z + toKey.length - 1] + 1).replace(/\s+/g, ' ').trim();
+  }
+  const m = text.match(/‏\s*"\s*‏\s*([\s\S]*?)\s*‏?\s*"\s*‏?/);
+  return (m ? m[1] : text).replace(/[‎‏]/g, '').replace(/\s+/g, ' ').replace(/\s*\.\s*$/, '').trim();
+}
+const seen = new Set();
+const hadith = curated.map((c) => {
+  if (seen.has(c.id)) throw new Error('duplicate hadith id ' + c.id);
+  seen.add(c.id);
+  const raw = collection(c.book).get(c.n);
+  if (!raw) throw new Error(`${c.id}: no hadith ${c.n} in ${c.book}`);
+  const matn = matnOf(raw, c);
+  if (!strip(matn).includes(strip(c.phrase))) throw new Error(`${c.id}: Arabic text of ${c.book} ${c.n} does not contain the expected phrase`);
+  return { id: c.id, theme: c.theme, title: c.title, en: c.en, src: c.src, ar: matn };
+});
+write('discover/hadith.json', hadith);
+console.log(`Hadith library: ${hadith.length} hadith, all matched against their sources`);

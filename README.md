@@ -13,7 +13,7 @@ The builds are not code-signed, so Windows SmartScreen may warn you: click **Mor
 
 - **Mushaf view**: the 604-page Madani mushaf (the classic 1405H print), laid out like the printed book: 15 lines per page, surah banners, verse markers, white paper. The pages fill your window, and two pages show side by side like an open book when there is room. Pages turn with a page-turn animation (← / → or the edge buttons); zoom with Ctrl + wheel.
 - **Verses view**: verse by verse with translation, transliteration and word-by-word meanings.
-- **Discover**: today's Hijri date and upcoming occasions; a verse, dua and hadith of the day; collections from the Qur'an and Sunnah (duas of the prophets, protection, Friday, Ramadan, Eid, Hajj, patience, forgiveness, family); duas for every moment from Hisn al-Muslim; morning and evening adhkar with repeat counters; the Forty Hadith; the 99 Names of Allah; Sunnah fasting days.
+- **Discover**: 70 stories (prophets, Qur'anic tales, the full Sira, the Companions, teachings from real moments), a Hadith library with the Arabic and a summary, search across it all, today's Hijri date and upcoming occasions; a verse, dua and hadith of the day; collections from the Qur'an and Sunnah (duas of the prophets, protection, Friday, Ramadan, Eid, Hajj, patience, forgiveness, family); duas for every moment from Hisn al-Muslim; morning and evening adhkar with repeat counters; the Forty Hadith; the 99 Names of Allah; Sunnah fasting days.
 - **Study panel** (press `T`): translation, word-by-word and tafsir for the selected verse, beside the page.
 - **Jump anywhere** with `Ctrl+K`: a surah name, `2:255`, `page 300`, `juz 20`, or a word to search for.
 - 62 translations in 40+ languages, with an optional second translation shown side by side.

@@ -10,6 +10,7 @@ own terms. They are included here for reading inside the app, not relicensed.
 | Word-by-word meanings, transliteration, Madani mushaf page and line layout, glyph codes | [Quran.com API](https://quran.com) (Quran Foundation) | The glyph codes (`data/qcf/`) only make sense with the optional fonts and are git-ignored too. |
 | Tafsir (Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar, Al-Muyassar, As-Sa'di) | [spa5k/tafsir_api](https://github.com/spa5k/tafsir_api), sourced from quran.com | Each tafsir is the work of its author and publisher. |
 | Audio | [EveryAyah](https://everyayah.com) | Streamed and cached on the user's computer; no audio is stored in this repository. |
+| Old Madina font (the default Qur'an script) | [DigitalKhatt oldmadinafont](https://github.com/DigitalKhatt/oldmadinafont), after the old Madina Mushaf | SIL Open Font License 1.1, see `src/fonts/OFL-OldMadina.txt`. Always bundled. |
 | Scheherazade New font | [SIL International](https://software.sil.org/scheherazade/) | SIL Open Font License 1.1, see `src/fonts/OFL-ScheherazadeNew.txt`. Always bundled. |
 | Madani mushaf fonts (optional) | King Fahd Glorious Qur'an Printing Complex, distributed by [Quran Foundation](https://api-docs.quran.foundation/legal/mushaf-fonts-and-images/) | **Not included in this repository.** Fetched by `npm run fetch-fonts` into a git-ignored folder. The terms allow bundling the fonts in an application for the app's own use, require crediting Quran Foundation, and do not allow offering the files separately. Read them before distributing a build that includes these fonts. |
 | Reem Kufi (logo lettering) | [The Reem Kufi Project](https://github.com/aliftype/reem-kufi) | SIL Open Font License 1.1, see `assets/OFL-ReemKufi.txt`. Embedded in `assets/logo.svg`. |
@@ -26,7 +27,8 @@ Which editions are bundled is listed in `scripts/data-config.js`.
 | Duas and adhkar (Hisn al-Muslim, 132 chapters) | [Islamic-Pro-azkar-API](https://github.com/YousefAsalya/Islamic-Pro-azkar-API) (MIT), from *Hisn al-Muslim* by Sa’id al-Qahtani | Arabic and English text as published in that dataset. |
 | Morning and evening adhkar, with transliteration, counts and sources | [Morning-And-Evening-Adhkar-DB](https://github.com/Seen-Arabic/Morning-And-Evening-Adhkar-DB) (MIT) | |
 | Arabic text of the Forty Hadith of an-Nawawi | [hadith-api](https://github.com/fawazahmed0/hadith-api) (Unlicense; classical Arabic text) | |
-| Collections, hadith summaries, the 99 Names, calendar occasions, Sunnah fasting days | Written for IQRA (MIT) | The English summaries are not taken from a published translation. Each reported practice names the collection it comes from. This content is for reference and learning; please verify rulings with a qualified scholar. |
+| Classical Arabic text of 44 hadith (Hadith library) | [hadith-api](https://github.com/fawazahmed0/hadith-api) (Unlicense), from the Arabic texts of Bukhari, Muslim, at-Tirmidhi and others | Checked against the source at build time; English summaries are written for IQRA. |
+| Collections, hadith summaries, stories of the prophets, the Sira and the Companions, the 99 Names, calendar occasions, Sunnah fasting days | Written for IQRA (MIT) | The English summaries are not taken from a published translation. Each reported practice names the collection it comes from. This content is for reference and learning; please verify rulings with a qualified scholar. |
 
 ## Credits
 

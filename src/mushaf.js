@@ -118,7 +118,7 @@ function placePaper(el, L) {
   fitPaper(el, L.aspect);
 }
 
-const FLIP_MS = 620;
+const FLIP_MS = 1050;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function paperEl(p) {
@@ -127,17 +127,149 @@ function paperEl(p) {
   return t.content.firstElementChild;
 }
 
-// Turn a page like a book: in an Arabic book the left page is lifted and turned over the spine onto the right-hand stack
-// (forward), or the right page turns back onto the left (backward). The leaf has the outgoing page on its front and the
-// incoming page on its back; the pages underneath are the ones being revealed and the ones being covered.
+// Turn a page like real paper. The leaf (the left page going forward in an Arabic book, the right page going back) is cut into
+// thin strips that each rotate about the spine. Their angles follow a travelling wave: the free edge lifts first, the paper
+// bends over its own weight, and the part by the spine turns last, so the sheet curls instead of swinging like a door.
+// The pages underneath (real DOM) are the one being revealed and the one being covered.
+//
+// Both sides of the leaf are painted once onto canvases from the laid-out page (every word is drawn where the browser put it).
+// Each frame then draws the strips onto one overlay canvas with perspective, shading and a soft cast shadow.
+const CURL_STRIPS = 56;
+const CURL_LAG = 0.74;        // how far the free edge leads the spine (0 = rigid door, 1 = very floppy)
+const CURL_PERSPECTIVE = 2600; // camera distance in CSS px
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const easeSine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Paint a laid-out .paper element onto a canvas, reading every position from the DOM.
+function snapshotPaper(el) {
+  const dpr = window.devicePixelRatio || 1;
+  const box = el.getBoundingClientRect();
+  const W = box.width;
+  const H = box.height;
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  const ctx = cv.getContext('2d');
+  ctx.scale(cv.width / W, cv.height / H);
+  const root = getComputedStyle(document.documentElement);
+  const color = (name) => root.getPropertyValue(name).trim();
+  const cs = getComputedStyle(el);
+  const u = W / 100;
+
+  ctx.fillStyle = cs.backgroundColor;
+  ctx.fillRect(0, 0, W, H);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = cs.borderTopColor;
+  ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+  ctx.strokeStyle = color('--gold');
+  ctx.globalAlpha = 0.5;
+  ctx.strokeRect(0.7 * u + 0.5, 0.7 * u + 0.5, W - 1.4 * u - 1, H - 1.4 * u - 1);
+  ctx.globalAlpha = 1;
+
+  const rel = (node) => {
+    const r = node.getBoundingClientRect();
+    return { x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height };
+  };
+
+  for (const banner of $$('.banner', el)) {
+    const r = rel(banner);
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 0.9 * u);
+    ctx.globalAlpha = 0.09;
+    ctx.fillStyle = color('--gold');
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = color('--gold');
+    roundRectPath(ctx, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 0.9 * u);
+    ctx.stroke();
+    ctx.lineWidth = 0.45 * u;
+    ctx.strokeStyle = cs.backgroundColor;
+    roundRectPath(ctx, r.x + 1 + 0.225 * u, r.y + 1 + 0.225 * u, r.w - 2 - 0.45 * u, r.h - 2 - 0.45 * u, 0.7 * u);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = color('--gold');
+    roundRectPath(ctx, r.x + 1 + 0.45 * u, r.y + 1 + 0.45 * u, r.w - 2 - 0.9 * u, r.h - 2 - 0.9 * u, 0.5 * u);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  // Words share a font, so read it once; baseline metrics are cached per font string.
+  const metrics = new Map();
+  const baselineOf = (font, text) => {
+    let m = metrics.get(font);
+    if (!m) { const t = ctx.measureText(text); m = { a: t.fontBoundingBoxAscent, d: t.fontBoundingBoxDescent }; metrics.set(font, m); }
+    return m;
+  };
+  const draw = (node, font, fill) => {
+    const text = node.textContent;
+    if (!text.trim()) return;
+    const r = rel(node);
+    ctx.font = font;
+    const { a, d } = baselineOf(font, text);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, r.x + r.w / 2, r.y + (r.h - (a + d)) / 2 + a);
+  };
+
+  const firstWord = $('.w:not(.mark)', el);
+  const wordStyle = firstWord ? getComputedStyle(firstWord) : cs;
+  const markNode = $('.w.mark', el);
+  const markStyle = markNode ? getComputedStyle(markNode) : null;
+  for (const node of $$('.w', el)) {
+    const r = rel(node);
+    if (node.classList.contains('current')) {
+      roundRectPath(ctx, r.x, r.y, r.w, r.h, 0.14 * parseFloat(wordStyle.fontSize));
+      ctx.fillStyle = color('--hl');
+      ctx.fill();
+    }
+    if (node.classList.contains('mark')) { // the verse-number circle of the open-font pages
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = markStyle.borderTopColor;
+      roundRectPath(ctx, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, Math.min(r.w, r.h) / 2);
+      ctx.stroke();
+      draw(node, markStyle.font, markStyle.color);
+    } else {
+      draw(node, wordStyle.font, wordStyle.color);
+    }
+  }
+  for (const node of $$('.paper-head span, .paper-foot, .bism, .banner span', el)) {
+    const s = getComputedStyle(node);
+    draw(node, s.font, s.color);
+  }
+  return cv;
+}
+
+// Returns the overlay canvas (already positioned inside `book`), after the animation has finished.
 async function playFlip(old, next, dir, L) {
   const [oldRight, oldLeft] = old;
   const [newRight, newLeft] = next;
   const W = L.width;
   const H = W / L.aspect;
+  const G = SPREAD_GAP;
+  const fwd = dir > 0; // forward: the left page lifts and lands on the right
+  const dpr = window.devicePixelRatio || 1;
+  const N = CURL_STRIPS;
+  const sw = W / N;
+  const sign = fwd ? 1 : -1;
+  const bookW = 2 * W + G;
+  const margin = Math.round(W * 0.16); // the lifted paper comes towards you and is drawn larger than the page
+
   const book = document.createElement('div');
   book.className = 'book';
-  book.style.width = `${2 * W + SPREAD_GAP}px`;
+  book.style.width = `${bookW}px`;
   book.style.height = `${H}px`;
 
   const slot = (p, side) => {
@@ -147,33 +279,123 @@ async function playFlip(old, next, dir, L) {
     d.append(paperEl(p));
     return d;
   };
-  const under = dir > 0 ? [slot(newLeft, 'left'), slot(oldRight, 'right')] : [slot(oldLeft, 'left'), slot(newRight, 'right')];
+  const under = fwd ? [slot(newLeft, 'left'), slot(oldRight, 'right')] : [slot(oldLeft, 'left'), slot(newRight, 'right')];
 
-  const leaf = document.createElement('div');
-  leaf.className = `leaf ${dir > 0 ? 'fwd' : 'back'}`;
-  leaf.style.width = `${W}px`;
-  leaf.style.height = `${H}px`;
-  leaf.style[dir > 0 ? 'left' : 'right'] = '0';
-  leaf.style.transformOrigin = dir > 0 ? `calc(100% + ${SPREAD_GAP / 2}px) 50%` : `${-SPREAD_GAP / 2}px 50%`; // the spine
-  const front = document.createElement('div');
-  front.className = 'face front';
-  front.append(paperEl(dir > 0 ? oldLeft : oldRight));
-  const back = document.createElement('div');
-  back.className = 'face back';
-  back.append(paperEl(dir > 0 ? newRight : newLeft));
-  leaf.append(front, back);
-
-  book.append(...under, leaf);
+  // The two sides of the leaf are laid out in a hidden stash so they can be painted onto canvases.
+  const frontPaper = paperEl(fwd ? oldLeft : oldRight);
+  const backPaper = paperEl(fwd ? newRight : newLeft);
+  const stash = document.createElement('div');
+  stash.className = 'stash';
+  stash.append(frontPaper, backPaper);
+  book.append(...under, stash);
   reader.innerHTML = '';
   reader.append(book);
   $$('.paper', book).forEach((el) => placePaper(el, L));
   highlightCurrent();
-  void book.offsetWidth; // commit the starting state before turning
-  leaf.classList.add('turning');
+  const frontCanvas = snapshotPaper(frontPaper);
+  const backCanvas = snapshotPaper(backPaper);
+  stash.remove();
+
+  const cv = document.createElement('canvas');
+  cv.className = 'curl';
+  cv.width = Math.round((bookW + 2 * margin) * dpr);
+  cv.height = Math.round((H + 2 * margin) * dpr);
+  cv.style.cssText = `left:${-margin}px;top:${-margin}px;width:${bookW + 2 * margin}px;height:${H + 2 * margin}px`;
+  const ctx = cv.getContext('2d');
+  const cx = bookW / 2;
+  const oy = H * 0.35;
+  const d = CURL_PERSPECTIVE;
+  const spineX = W + G / 2;
+  const sx = (src) => src.width / W; // source pixels per CSS px
+
+  const angle = (u, p) => Math.PI * easeSine(clamp01(p * (1 + CURL_LAG) - (1 - u) * CURL_LAG)); // u: 0 at the spine, 1 at the free edge
+
+  const draw = (p) => {
+    ctx.setTransform(dpr, 0, 0, dpr, margin * dpr, margin * dpr);
+    ctx.clearRect(-margin, -margin, bookW + 2 * margin, H + 2 * margin);
+
+    // The chain of strips from the spine out: each continues from where the previous one ends.
+    const dirOf = (th) => ({ x: -sign * Math.cos(th), z: Math.sin(th) });
+    const th0 = angle(0, p);
+    let px = spineX + (G / 2) * dirOf(th0).x;
+    let pz = (G / 2) * dirOf(th0).z;
+    const quads = [];
+    for (let i = 0; i < N; i++) {
+      const th = angle((i + 0.5) / N, p);
+      const dv = dirOf(th);
+      const ex = px + sw * dv.x;
+      const ez = pz + sw * dv.z;
+      quads.push({ i, th, ax: px, az: pz, bx: ex, bz: ez });
+      px = ex;
+      pz = ez;
+    }
+    // Shade by the angle at each edge (not per strip) so the sheet darkens smoothly where it curves.
+    const edgeAngle = (i) => angle(clamp01(i / N), p);
+    const darkAt = (th, u) => 0.5 * Math.sin(th) * (0.55 + 0.45 * u); // the curved part catches less light
+    quads.forEach((q) => { q.dA = darkAt(edgeAngle(q.i), q.i / N); q.dB = darkAt(edgeAngle(q.i + 1), (q.i + 1) / N); });
+    const proj = (x, z) => { const s = d / (d - z); return { x: cx + (x - cx) * s, s }; };
+
+    // Soft shadow of the lifted paper on the page below.
+    if (p > 0.02 && p < 0.98) {
+      const lift = Math.min(1, Math.max(...quads.map((q) => q.bz)) / (W * 0.5));
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(spineX, 6);
+      quads.forEach((q) => ctx.lineTo(q.bx + q.bz * 0.45, 6 + q.bz * 0.05));
+      for (let k = quads.length - 1; k >= 0; k--) ctx.lineTo(quads[k].bx + quads[k].bz * 0.45, H + quads[k].bz * 0.05);
+      ctx.lineTo(spineX, H);
+      ctx.closePath();
+      ctx.shadowColor = `rgba(0,0,0,${0.32 * lift})`;
+      ctx.shadowBlur = 28;
+      ctx.shadowOffsetX = 0;
+      ctx.fillStyle = `rgba(0,0,0,${0.12 * lift})`;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Paint far-to-near so a curl that folds over itself overlaps correctly.
+    quads.sort((a, b) => (a.az + a.bz) - (b.az + b.bz));
+    for (const q of quads) {
+      const a = proj(q.ax, q.az);
+      const b = proj(q.bx, q.bz);
+      const x0 = Math.min(a.x, b.x);
+      const w = Math.abs(b.x - a.x);
+      if (w < 0.15) continue;
+      const s = (a.s + b.s) / 2;
+      const showBack = q.th >= Math.PI / 2;
+      const src = showBack ? backCanvas : frontCanvas;
+      const pageLeft = showBack
+        ? (fwd ? q.i * sw : W - (q.i + 1) * sw)
+        : (fwd ? W - (q.i + 1) * sw : q.i * sw);
+      const k = sx(src);
+      const dy = oy + (0 - oy) * s;
+      ctx.drawImage(src, pageLeft * k, 0, sw * k, src.height, x0 - 0.3, dy, w + 0.6, H * s);
+      if (q.dA > 0.01 || q.dB > 0.01) {
+        // the strip's hinge edge is q.a (nearer the spine); on screen that edge is on the left when the free end is to its right
+        const leftIsA = a.x <= b.x;
+        const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+        g.addColorStop(0, `rgba(0,0,0,${leftIsA ? q.dA : q.dB})`);
+        g.addColorStop(1, `rgba(0,0,0,${leftIsA ? q.dB : q.dA})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(x0 - 0.3, dy, w + 0.6, H * s);
+      }
+    }
+  };
+
+  draw(0); // the first frame matches the page it replaces, so swapping it in is invisible
+  book.append(cv);
+  await nextFrame();
   await new Promise((resolve) => {
-    leaf.addEventListener('transitionend', resolve, { once: true });
-    setTimeout(resolve, FLIP_MS + 150);
+    let t0 = null;
+    const frame = (now) => {
+      if (t0 === null) t0 = now;
+      const t = clamp01((now - t0) / FLIP_MS);
+      draw(easeSine(t));
+      if (t < 1) requestAnimationFrame(frame); else resolve();
+    };
+    requestAnimationFrame(frame);
   });
+  return cv;
 }
 
 async function renderMushaf() {
@@ -190,8 +412,9 @@ async function renderMushaf() {
   reader.className = 'mushaf';
 
   let turned = false;
+  let overlay = null;
   if (changed && state.flipAnim && !reducedMotion() && L.spread && old.length === 2 && pages.length === 2 && Math.abs(pages[0] - old[0]) === 2) {
-    await playFlip(old, pages, pages[0] > old[0] ? 1 : -1, L);
+    overlay = await playFlip(old, pages, pages[0] > old[0] ? 1 : -1, L);
     if (token !== renderToken) return; // another page turn started meanwhile
     turned = true;
   }
@@ -200,9 +423,33 @@ async function renderMushaf() {
   $$('.paper', reader).forEach((el) => placePaper(el, L));
   highlightCurrent();
   updateMushafChrome();
-  for (const n of [pages[0] - 2, pages[0] - 1, pages[pages.length - 1] + 1, pages[pages.length - 1] + 2]) {
-    if (n >= 1 && n <= MAX_PAGE) pageFont(n); // warm the next flips
+  if (overlay) { // the landed page is painted over the real one; fade it away so the swap is invisible
+    const spread = $('.spread', reader);
+    spread.style.position = 'relative';
+    spread.append(overlay);
+    requestAnimationFrame(() => { overlay.style.transition = 'opacity 0.2s ease-out'; overlay.style.opacity = '0'; });
+    setTimeout(() => overlay.remove(), 320);
   }
+  warmNeighbours(pages);
+}
+
+// While you read, quietly lay out the pages a turn would reveal so the fit is cached and the fonts are warm.
+function warmNeighbours(pages) {
+  const L = layoutMushaf();
+  const want = L.spread
+    ? [...spreadOf(pages[0] + 2), ...spreadOf(Math.max(1, pages[0] - 1))]
+    : [pages[0] + 1, pages[0] - 1];
+  const todo = [...new Set(want)].filter((p) => p >= 1 && p <= MAX_PAGE);
+  const run = () => {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-99999px;top:0';
+    document.body.append(holder);
+    Promise.all(todo.map(pageFont)).then(() => {
+      todo.forEach((p) => { const el = paperEl(p); holder.append(el); placePaper(el, L); });
+      holder.remove();
+    });
+  };
+  (window.requestIdleCallback || ((f) => setTimeout(f, 200)))(run, { timeout: 1500 });
 }
 
 function updateMushafChrome() {

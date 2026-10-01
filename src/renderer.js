@@ -253,7 +253,7 @@ function applyPrefs() {
   studyPanel.hidden = !state.studyOpen;
   $('#font-note').textContent = MUSHAF.qcf
     ? 'Script: the printed Madani mushaf (King Fahd Glorious Qur\'an Printing Complex).'
-    : 'Script: Scheherazade New. Run "npm run fetch-fonts" to install the authentic Madani mushaf script.';
+    : 'Script: Old Madina, an open font after the classic Madina Mushaf. (Run "npm run fetch-fonts" when building from source to use the printed glyphs.)';
   updateZoomLabel();
 }
 

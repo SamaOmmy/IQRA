@@ -1,3 +1,9 @@
+/* Old Madina: the DigitalKhatt font after the classic Madina Mushaf (SIL OFL 1.1), the default Qur'an script. */
+@font-face {
+  font-family: 'Old Madina';
+  src: url('fonts/oldmadina.woff2') format('woff2');
+  font-display: block;
+}
 @font-face {
   font-family: 'Scheherazade New';
   src: url('fonts/scheherazade-new-arabic-400-normal.woff2') format('woff2');
@@ -14,7 +20,7 @@
 /* ---------- Tokens ---------- */
 :root {
   --f-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --f-quran: 'Scheherazade New', 'Traditional Arabic', serif;
+  --f-quran: 'Old Madina', 'Scheherazade New', 'Traditional Arabic', serif;
   --desk: #e7e6e2;
   --chrome: #f6f5f2;
   --paper: #ffffff;
@@ -30,7 +36,7 @@
   --tr-size: 16px;
   color-scheme: light;
 }
-:root.hafs { --f-quran: 'UthmanicHafs', 'Scheherazade New', serif; }
+:root.hafs { --f-quran: 'UthmanicHafs', 'Old Madina', 'Scheherazade New', serif; }
 :root[data-theme='dark'] {
   --desk: #0a0e0d;
   --chrome: #101615;
@@ -328,21 +334,12 @@ mark { background: color-mix(in srgb, var(--gold) 38%, transparent); color: inhe
 .about .credits { font-size: 12px; line-height: 1.55; }
 
 /* ---------- Page turn ---------- */
-:root { --flip-ms: 620ms; }
-.book { position: relative; flex: none; margin: auto; perspective: 2800px; pointer-events: none; }
+.book { position: relative; flex: none; margin: auto; pointer-events: none; }
+.stash { position: absolute; left: -99999px; top: 0; }
 .slot { position: absolute; top: 0; }
 .slot.left { left: 0; }
 .slot.right { right: 0; }
-.slot::after { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.16); border-radius: 3px; pointer-events: none; animation: under-shade var(--flip-ms) ease-out forwards; }
-.leaf { position: absolute; top: 0; transform-style: preserve-3d; transition: transform var(--flip-ms) cubic-bezier(0.55, 0.06, 0.3, 1); will-change: transform; }
-.leaf.fwd.turning { transform: rotateY(180deg); }
-.leaf.back.turning { transform: rotateY(-180deg); }
-.face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.face.back { transform: rotateY(180deg); }
-.face::after { content: ''; position: absolute; inset: 0; border-radius: 3px; pointer-events: none; opacity: 0; background: linear-gradient(90deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0) 70%); }
-.leaf.turning .face::after { animation: leaf-shade var(--flip-ms) ease-in-out; }
-@keyframes leaf-shade { 0%, 100% { opacity: 0; } 45% { opacity: 1; } }
-@keyframes under-shade { from { opacity: 1; } to { opacity: 0; } }
+.curl { position: absolute; pointer-events: none; }
 .spread.fade-in { animation: fade-in 0.22s ease-out; }
 @keyframes fade-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .spread.fade-in { animation: none; } }
@@ -401,7 +398,7 @@ mark { background: color-mix(in srgb, var(--gold) 38%, transparent); color: inhe
 .v-trans { font-size: 15px; line-height: 1.62; margin-top: 6px; color: color-mix(in srgb, var(--ink) 84%, transparent); }
 .v-trans sup { color: var(--gold); font-weight: 600; margin-right: 2px; }
 .dactions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.dua-ar { font-family: 'Scheherazade New', var(--f-quran), serif; font-size: 27px; line-height: 2.05; text-align: right; white-space: pre-line; }
+.dua-ar { font-family: var(--f-quran); font-size: 27px; line-height: 2.05; text-align: right; white-space: pre-line; }
 .dua-tl { font-style: italic; color: var(--accent); font-size: 14.5px; line-height: 1.55; margin-top: 6px; }
 .dua-en { font-size: 15px; line-height: 1.62; margin-top: 6px; }
 .dua-foot { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
@@ -437,8 +434,29 @@ cite { font-size: 12px; color: var(--muted); font-style: normal; }
 .d-name { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 10px; text-align: center; }
 .d-name.today { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
 .d-name-n { position: absolute; left: 10px; top: 8px; font-size: 11px; color: var(--muted); }
-.d-name-ar { font-family: 'Scheherazade New', var(--f-quran), serif; font-size: 31px; line-height: 1.7; color: var(--accent); }
+.d-name-ar { font-family: var(--f-quran); font-size: 31px; line-height: 1.7; color: var(--accent); }
 .d-name-tl { font-weight: 600; font-size: 14px; }
 .d-name-en { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
 .d-credit { margin-top: 38px; font-size: 12px; color: var(--muted); max-width: 80ch; }
 @media (max-width: 920px) { .d-today { grid-template-columns: 1fr; } .d-card.feature { grid-row: auto; } .d-hero { flex-direction: column; align-items: flex-start; } }
+
+.d-chip.pick { cursor: pointer; font: inherit; font-size: 12.5px; color: var(--ink); }
+.d-chip.pick:hover, .d-chip.pick.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--paper)); }
+.filters { margin: 4px 0 12px; }
+.d-note { font-size: 12.5px; color: var(--muted); margin: 0 0 14px; max-width: 75ch; line-height: 1.5; }
+.d-eyebrow { font-size: 12px; letter-spacing: 0.04em; color: var(--gold); text-transform: uppercase; }
+.linklike { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0; text-transform: inherit; letter-spacing: inherit; }
+.linklike:hover { text-decoration: underline; }
+.story { max-width: 760px; }
+.story p { font-size: 17px; line-height: 1.85; margin: 0 0 1em; }
+.lessons { border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 9%, var(--paper)); border-radius: 0 12px 12px 0; padding: 4px 18px 8px; margin: 18px 0; }
+.lessons h3 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin: 12px 0 6px; }
+.lessons li { font-size: 15px; line-height: 1.6; margin-bottom: 4px; }
+.story-src { margin-top: 8px; }
+.story-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 26px; }
+.story-card .d-card-era { font-size: 11.5px; color: var(--gold); }
+.story-feature { background: var(--paper); border: 1px solid var(--gold); border-radius: 16px; padding: 14px 20px 16px; margin-bottom: 14px; }
+.dbtn.on { color: var(--gold); border-color: var(--gold); }
+.search-results .sr-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sr-snip { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-search { margin-bottom: 14px; }

@@ -72,6 +72,11 @@ async function pool(jobs, limit, label) {
     ['discover/hisn-ar.json', 'https://raw.githubusercontent.com/YousefAsalya/Islamic-Pro-azkar-API/main/data/ar.json'],
     ['discover/azkar-en.json', 'https://raw.githubusercontent.com/Seen-Arabic/Morning-And-Evening-Adhkar-DB/main/result/en.json'],
     ['discover/nawawi-ar.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-nawawi.json'],
+    ['discover/ara-bukhari.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-bukhari.json'],
+    ['discover/ara-muslim.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-muslim.json'],
+    ['discover/ara-tirmidhi.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-tirmidhi.json'],
+    ['discover/ara-abudawud.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-abudawud.json'],
+    ['discover/ara-ibnmajah.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-ibnmajah.json'],
   ].map(([file, url]) => ({ name: file, run: () => cached(file, url) }));
   failures += await pool(discoverJobs, 4, 'discover');
 

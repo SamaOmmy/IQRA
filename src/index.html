@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src qaudio:; img-src 'self' data:" />
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src qaudio:; img-src 'self' data: blob:" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IQRA</title>
   <link rel="stylesheet" href="styles.css" />
@@ -176,7 +176,7 @@
         <section class="about">
           <h4>About</h4>
           <p>IQRA <span id="app-version"></span> is a free, open-source Qur'an reader. <a id="about-link" href="https://github.com/SamaOmmy/IQRA" target="_blank" rel="noreferrer">Source on GitHub</a></p>
-          <p class="credits">Credits: Qur'an text and translations from Tanzil and Al Quran Cloud · mushaf page layout and word-by-word data from Quran.com (Quran Foundation) · tafsir from spa5k/tafsir_api · duas from Hisn al-Muslim and the hadith-api project · audio from EveryAyah · Scheherazade New and Reem Kufi fonts (SIL OFL). Full details in <a href="https://github.com/SamaOmmy/IQRA/blob/main/NOTICE.md" target="_blank" rel="noreferrer">NOTICE</a>.</p>
+          <p class="credits">Credits: Qur'an text and translations from Tanzil and Al Quran Cloud · mushaf page layout and word-by-word data from Quran.com (Quran Foundation) · tafsir from spa5k/tafsir_api · duas from Hisn al-Muslim and the hadith-api project · audio from EveryAyah · Old Madina (DigitalKhatt), Scheherazade New and Reem Kufi fonts (SIL OFL). Full details in <a href="https://github.com/SamaOmmy/IQRA/blob/main/NOTICE.md" target="_blank" rel="noreferrer">NOTICE</a>.</p>
           <div class="row"><button id="btn-check-update" class="btn">Check for updates</button><span id="update-status" class="note"></span></div>
         </section>
       </div>
@@ -199,7 +199,10 @@
   <script src="nav.js"></script>
   <script src="updates.js"></script>
   <script src="discover-content.js"></script>
+  <script src="stories-quran.js"></script>
+  <script src="stories-sira.js"></script>
   <script src="discover.js"></script>
+  <script src="discover-more.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
