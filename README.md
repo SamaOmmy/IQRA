@@ -1,6 +1,6 @@
 # IQRA
 
-<p align="center"><img src="assets/logo.svg" width="96" alt="IQRA logo" /></p>
+<p align="center"><img src="build/icon.png" width="96" alt="IQRA logo" /></p>
 
 **IQRA** (اقرأ, "Read") is a free, open-source Qur'an reader for Windows, built with Electron. Everything except audio streaming works offline.
 
