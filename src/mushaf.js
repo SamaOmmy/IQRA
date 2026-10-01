@@ -74,7 +74,7 @@ function paperHtml(p) {
 
   const first = words[0];
   const juz = ayahOf(first[0], first[1]).juz;
-  return `<article class="paper${MUSHAF.qcf ? ' qcf' : ''}" data-page="${p}" style="--rows:${p <= 2 ? 8 : 15};--qf:'QCF2_p${p}'">
+  return `<article class="paper${MUSHAF.qcf ? ' qcf' : ''}" data-page="${p}" style="--rows:${p <= 2 ? 8 : 15};--gap:${p <= 2 ? '0.32em' : '0.18em'};--qf:'QCF2_p${p}'">
     <div class="paper-head"><span>الجزء ${toArabicDigits(juz)}</span><span>سورة ${esc(surahOf(first[0]).ar)}</span></div>
     <div class="grid">${body}</div>
     <div class="paper-foot">${toArabicDigits(p)}</div>
@@ -95,7 +95,7 @@ function fitPaper(el) {
     el.classList.remove('measuring');
     const innerW = grid.clientWidth / W;
     const rowH = grid.clientHeight / (p <= 2 ? 8 : 15) / W;
-    const kFit = (10 * innerW) / Math.max(...natural);
+    const kFit = (0.995 * 10 * innerW) / Math.max(...natural); // a hair of slack so rounding never pushes a line past the frame
     const k = Math.min(kFit, rowH * 0.74 * 100); // never taller than its row
     fit = { k, ratios: natural.map((n) => (n * (k / 10)) / innerW) };
     fitCache.set(key, fit);

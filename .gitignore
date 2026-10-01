@@ -8,3 +8,5 @@ data/raw/
 # Authentic mushaf fonts and glyph data (King Fahd Complex / Quran Foundation terms: not to be offered separately)
 src/fonts/mushaf/
 data/qcf/
+
+dist-public/

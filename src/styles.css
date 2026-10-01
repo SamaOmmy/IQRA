@@ -202,12 +202,12 @@ mark { background: color-mix(in srgb, var(--gold) 38%, transparent); color: inhe
 .grid { flex: 1; min-height: 0; display: grid; grid-template-rows: repeat(var(--rows), 1fr); grid-template-columns: 100%; }
 
 .line {
-  display: flex; direction: rtl; justify-content: space-between; align-items: center; column-gap: 0.18em; white-space: nowrap;
+  display: flex; direction: rtl; justify-content: space-between; align-items: center; column-gap: var(--gap, 0.18em); white-space: nowrap;
   font-family: var(--f-quran); font-size: calc(var(--k) * var(--u)); line-height: 1.25; min-height: 0;
 }
 .paper.qcf .line { font-family: var(--qf), var(--f-quran); }
-.line.center { justify-content: center; column-gap: 0.32em; }
-.paper.measuring .line { font-size: calc(10 * var(--u)); width: max-content; justify-content: flex-start; column-gap: 0.18em; }
+.line.center { justify-content: center; column-gap: max(var(--gap, 0.18em), 0.3em); }
+.paper.measuring .line { font-size: calc(10 * var(--u)); width: max-content; justify-content: flex-start; column-gap: var(--gap, 0.18em); }
 .w { cursor: pointer; border-radius: 0.14em; }
 .w:hover { background: color-mix(in srgb, var(--accent) 11%, transparent); }
 .w.current { background: var(--hl); }
