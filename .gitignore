@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+
+# Raw downloads; regenerate with `npm run fetch-data`
+data/raw/

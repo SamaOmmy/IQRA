@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src qaudio:; img-src 'self' data:" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Qur'an Reader</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <span class="brand-ar">القرآن الكريم</span>
+        <span class="brand-en">Qur'an Reader</span>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="surahs" role="tab">Surahs</button>
+        <button class="tab" data-tab="juz" role="tab">Juz</button>
+        <button class="tab" data-tab="saved" role="tab">Saved</button>
+        <button class="tab" data-tab="search" role="tab">Search</button>
+        <button class="tab" data-tab="offline" role="tab">Offline</button>
+      </nav>
+      <div id="panel-surahs" class="panel active">
+        <input id="surah-filter" class="input" type="search" placeholder="Filter surahs…" autocomplete="off" />
+        <ul id="surah-list" class="list"></ul>
+      </div>
+      <div id="panel-juz" class="panel"><ul id="juz-list" class="list"></ul></div>
+      <div id="panel-saved" class="panel"><ul id="saved-list" class="list"></ul></div>
+      <div id="panel-search" class="panel">
+        <input id="search-input" class="input" type="search" placeholder="Search text, or jump with 2:255" autocomplete="off" />
+        <ul id="search-results" class="list"></ul>
+      </div>
+      <div id="panel-offline" class="panel">
+        <div class="offline-head">
+          <div id="offline-title" class="name"></div>
+          <div id="offline-usage" class="sub"></div>
+          <div class="sub">Verses you listen to are saved automatically. Download whole surahs to listen without internet.</div>
+          <div class="row">
+            <button id="off-all" class="btn">Download all</button>
+            <button id="off-cancel" class="btn" hidden>Cancel</button>
+            <button id="off-clear" class="btn">Delete all</button>
+            <button id="off-folder" class="btn">Open folder</button>
+          </div>
+          <div id="off-progress" class="progress" hidden><div class="bar"></div><span></span></div>
+        </div>
+        <ul id="offline-list" class="list"></ul>
+      </div>
+    </aside>
+
+    <main id="main">
+      <header id="toolbar">
+        <div class="tool-group">
+          <button id="prev-surah" class="btn icon" title="Previous surah (Alt+Left)">‹</button>
+          <button id="next-surah" class="btn icon" title="Next surah (Alt+Right)">›</button>
+        </div>
+        <div class="seg" role="group" aria-label="View">
+          <button id="view-verse" class="seg-btn" title="Verse by verse, with translation">Verses</button>
+          <button id="view-flow" class="seg-btn" title="Continuous Arabic text">Text</button>
+          <button id="view-pages" class="seg-btn" title="Madani mushaf pages (604)">Pages</button>
+        </div>
+        <label id="page-jump" class="check" hidden>Page <input id="page-input" class="input page-input" type="number" min="1" max="604" /> / 604</label>
+        <div class="tool-group right">
+          <button id="font-down" class="btn" title="Smaller text (Ctrl+-)">A−</button>
+          <button id="font-up" class="btn" title="Larger text (Ctrl+=)">A+</button>
+          <button id="display" class="btn" title="Translation, word-by-word, theme">Display ▾</button>
+          <button id="tafsir-toggle" class="btn" title="Tafsir for the current verse (T)">Tafsir</button>
+          <button id="bookmark-current" class="btn" title="Save current verse (B)">☆ Save</button>
+        </div>
+        <div id="display-pop" class="popover" hidden>
+          <label class="field">Translation
+            <select id="sel-tr1" class="input"></select>
+          </label>
+          <label class="field">Second translation
+            <select id="sel-tr2" class="input"></select>
+          </label>
+          <label class="check"><input id="chk-showtr" type="checkbox" /> Show translation</label>
+          <label class="check"><input id="chk-translit" type="checkbox" /> Transliteration</label>
+          <label class="check"><input id="chk-wbw" type="checkbox" /> Word-by-word meanings</label>
+          <div class="field">Theme
+            <div class="seg" id="theme-seg">
+              <button class="seg-btn" data-theme="light">Light</button>
+              <button class="seg-btn" data-theme="sepia">Sepia</button>
+              <button class="seg-btn" data-theme="dark">Dark</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="reader" tabindex="0"></section>
+
+      <footer id="player">
+        <div class="now"><span id="now-playing">Select a verse to listen</span></div>
+        <div class="controls">
+          <button id="p-prev" class="btn icon" title="Previous verse (P)">⏮</button>
+          <button id="p-play" class="btn icon play" title="Play / pause (Space)">▶</button>
+          <button id="p-next" class="btn icon" title="Next verse (N)">⏭</button>
+        </div>
+        <div class="opts">
+          <label class="check"><input id="p-continuous" type="checkbox" /> Next surah</label>
+          <select id="speed" class="input select narrow" title="Playback speed">
+            <option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option>
+          </select>
+          <select id="reciter" class="input select" title="Reciter"></select>
+        </div>
+      </footer>
+    </main>
+
+    <aside id="tafsir" hidden>
+      <div class="tafsir-head">
+        <div class="tafsir-top">
+          <strong>Tafsir</strong>
+          <button id="tafsir-close" class="btn icon" title="Close (Esc)">✕</button>
+        </div>
+        <select id="tafsir-select" class="input"></select>
+        <div class="tafsir-nav">
+          <button id="tafsir-prev" class="btn icon" title="Previous verse">‹</button>
+          <span id="tafsir-ref"></span>
+          <button id="tafsir-next" class="btn icon" title="Next verse">›</button>
+        </div>
+      </div>
+      <div id="tafsir-body"></div>
+    </aside>
+  </div>
+  <div id="toast" role="status"></div>
+  <script src="util.js"></script>
+  <script src="pages.js"></script>
+  <script src="tafsir.js"></script>
+  <script src="audio.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

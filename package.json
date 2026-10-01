@@ -1,0 +1,39 @@
+{
+  "name": "quran-reader",
+  "version": "1.0.0",
+  "description": "A Qur'an reader for Windows",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build-data": "node scripts/build-data.js",
+    "dist": "electron-builder --win",
+    "fetch-data": "node scripts/fetch-data.js",
+    "pack": "electron-builder --win dir"
+  },
+  "build": {
+    "appId": "com.quranreader.app",
+    "productName": "Qur'an Reader",
+    "files": [
+      "src/**/*",
+      "data/quran.json",
+      "data/translations/**",
+      "data/words/**",
+      "data/pages/**",
+      "data/tafsir/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@fontsource/amiri-quran": "^5.3.0"
+  }
+}
