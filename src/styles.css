@@ -324,3 +324,5 @@ mark { background: color-mix(in srgb, var(--gold) 38%, transparent); color: inhe
 /* ---------- Update bar ---------- */
 #update-bar { display: flex; align-items: center; gap: 10px; padding: 6px 14px; font-size: 13px; background: color-mix(in srgb, var(--accent) 14%, var(--chrome)); border-bottom: 1px solid var(--line); }
 #update-bar .btn { padding: 3px 12px; }
+
+.about .credits { font-size: 12px; line-height: 1.55; }

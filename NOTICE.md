@@ -18,3 +18,13 @@ own terms. They are included here for reading inside the app, not relicensed.
 If you are the author or rights holder of any translation or tafsir included here and would like it removed or
 credited differently, please open an issue and it will be taken out promptly.
 Which editions are bundled is listed in `scripts/data-config.js`.
+
+## Credits
+
+Credit is given in the app (Settings, then About) and here: the Madani mushaf page layout, the word-by-word meanings and
+transliteration come from [Quran.com](https://quran.com) / Quran Foundation. The Arabic text and most translations come from the
+[Tanzil Project](https://tanzil.net) via [Al Quran Cloud](https://alquran.cloud). Tafsir comes from
+[spa5k/tafsir_api](https://github.com/spa5k/tafsir_api). Audio comes from [EveryAyah](https://everyayah.com).
+
+The page layout is a factual record of where the printed Madani mushaf breaks its lines. If Quran Foundation (or anyone
+else) would like any of this data removed or credited differently, open an issue and it will be handled promptly.
