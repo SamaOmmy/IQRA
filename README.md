@@ -1,10 +1,12 @@
 # IQRA
 
+<p align="center"><img src="assets/logo.svg" width="96" alt="IQRA logo" /></p>
+
 **IQRA** (اقرأ, "Read") is a free, open-source Qur'an reader for Windows, built with Electron. Everything except audio streaming works offline.
 
 ## Download
 
-Grab the installer or the portable .exe from the [latest release](https://github.com/SamaOmmy/Qur-An/releases/latest) (Windows 10/11, 64-bit).
+Grab the installer or the portable .exe from the [latest release](https://github.com/SamaOmmy/IQRA/releases/latest) (Windows 10/11, 64-bit).
 The builds are not code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
 
 ## What it does
@@ -55,6 +57,19 @@ offering them separately. See [NOTICE.md](NOTICE.md) before you publish a build 
 
     npm run dist     # installer + portable .exe in dist/
     npm run pack     # unpacked app folder only (faster, for testing)
+
+## Updates
+
+The installed app checks GitHub Releases in the background, downloads a newer version, and offers a one-click restart
+(Settings, then *Check for updates*, also works). The portable build cannot replace itself, so it only tells you when a newer
+release exists and links to it.
+
+### Publishing a release (maintainers)
+
+1. Bump `version` in `package.json`.
+2. `npm run dist` (run `npm run fetch-fonts` first if the build should include the Madani mushaf script).
+3. Create a GitHub release tagged `vX.Y.Z` and upload from `dist/`: `IQRA-Setup-X.Y.Z.exe`, its `.blockmap`, **`latest.yml`**, and `IQRA-X.Y.Z-portable.exe`.
+   Installed apps update from `latest.yml`, so it must be attached.
 
 ## Data
 

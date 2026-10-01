@@ -22,7 +22,8 @@
       "data/pages/**",
       "data/qcf/**",
       "data/tafsir/**",
-      "package.json"
+      "package.json",
+      "build/icon.png"
     ],
     "win": {
       "target": [
@@ -35,7 +36,15 @@
     },
     "portable": {
       "artifactName": "IQRA-${version}-portable.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "SamaOmmy",
+        "repo": "IQRA"
+      }
+    ],
+    "icon": "build/icon.ico"
   },
   "devDependencies": {
     "electron": "^44.5.1",
@@ -45,7 +54,10 @@
   "author": "Sama Ommy",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SamaOmmy/Qur-An.git"
+    "url": "git+https://github.com/SamaOmmy/IQRA.git"
   },
-  "homepage": "https://github.com/SamaOmmy/Qur-An#readme"
+  "homepage": "https://github.com/SamaOmmy/IQRA#readme",
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
 }

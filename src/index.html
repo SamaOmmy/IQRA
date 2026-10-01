@@ -11,7 +11,7 @@
 <body>
   <div id="app">
     <nav id="rail" aria-label="Main">
-      <div class="logo" title="IQRA"><span>اقرأ</span></div>
+      <div class="logo" title="IQRA"><img src="assets/logo-96.png" alt="IQRA" width="36" height="36" /></div>
       <button class="rail-btn" data-drawer="library" title="Surahs and Juz (Ctrl+L)" aria-label="Library">
         <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
       </button>
@@ -89,6 +89,12 @@
         <button id="btn-study" class="btn" title="Translation, words and tafsir for the selected verse (T)">Study</button>
       </header>
       <div id="progress"><i></i></div>
+      <div id="update-bar" hidden>
+        <span id="update-text"></span>
+        <span class="spacer"></span>
+        <button id="update-action" class="btn" hidden></button>
+        <button id="update-dismiss" class="icon-btn" title="Dismiss" aria-label="Dismiss">✕</button>
+      </div>
 
       <section id="stage">
         <button id="flip-prev" class="flip right" title="Previous page (→)" aria-label="Previous page">›</button>
@@ -167,7 +173,8 @@
         </section>
         <section class="about">
           <h4>About</h4>
-          <p>IQRA is a free, open-source Qur'an reader. <a id="about-link" href="https://github.com/SamaOmmy/Qur-An" target="_blank" rel="noreferrer">Source on GitHub</a></p>
+          <p>IQRA <span id="app-version"></span> is a free, open-source Qur'an reader. <a id="about-link" href="https://github.com/SamaOmmy/IQRA" target="_blank" rel="noreferrer">Source on GitHub</a></p>
+          <div class="row"><button id="btn-check-update" class="btn">Check for updates</button><span id="update-status" class="note"></span></div>
         </section>
       </div>
     </div>
@@ -187,6 +194,7 @@
   <script src="study.js"></script>
   <script src="audio.js"></script>
   <script src="nav.js"></script>
+  <script src="updates.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

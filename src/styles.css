@@ -74,7 +74,8 @@ button { font: inherit; color: inherit; }
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0;
   background: var(--chrome); border-right: 1px solid var(--line); z-index: 31;
 }
-.logo { height: 44px; display: grid; place-items: center; margin-bottom: 6px; font-family: var(--f-quran); font-size: 22px; color: var(--accent); line-height: 1; }
+.logo { height: 44px; display: grid; place-items: center; margin-bottom: 6px; }
+.logo img { display: block; border-radius: 9px; }
 .rail-btn {
   width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px;
   background: transparent; color: var(--muted); cursor: pointer;
@@ -319,3 +320,7 @@ mark { background: color-mix(in srgb, var(--gold) 38%, transparent); color: inhe
 ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--muted) 75%, transparent); background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- Update bar ---------- */
+#update-bar { display: flex; align-items: center; gap: 10px; padding: 6px 14px; font-size: 13px; background: color-mix(in srgb, var(--accent) 14%, var(--chrome)); border-bottom: 1px solid var(--line); }
+#update-bar .btn { padding: 3px 12px; }

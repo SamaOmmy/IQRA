@@ -22,6 +22,14 @@ contextBridge.exposeInMainWorld('api', {
   mushaf: () => MUSHAF,
   loadQuran: () => readData('quran.json'),
   loadData: readData,
+  version: () => ipcRenderer.invoke('app:version'),
+  updates: {
+    check: () => ipcRenderer.invoke('update:check'),
+    state: () => ipcRenderer.invoke('update:state'),
+    install: () => ipcRenderer.invoke('update:install'),
+    openRelease: () => ipcRenderer.invoke('update:open-release'),
+    onStatus: (cb) => ipcRenderer.on('update:status', (_e, s) => cb(s)),
+  },
   audio: {
     status: (reciter) => ipcRenderer.invoke('audio:status', reciter),
     usage: (reciter) => ipcRenderer.invoke('audio:usage', reciter),

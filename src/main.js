@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, shell, protocol, net, ipcMain, nativeTheme } =
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+const { autoUpdater } = require('electron-updater');
 
 // qaudio://a/<reciter>/<surah3><ayah3>.mp3 is served from the local audio cache,
 // downloading the verse from everyayah.com first if it isn't cached yet.
@@ -142,6 +143,70 @@ ipcMain.handle('audio:open-folder', async () => {
   return shell.openPath(audioDir());
 });
 
+// ---------- Updates ----------
+// Installed builds update themselves from GitHub Releases (electron-updater). The portable build cannot replace
+// itself, so it only checks whether a newer release exists and links to it.
+const REPO = 'SamaOmmy/IQRA';
+const PORTABLE = Boolean(process.env.PORTABLE_EXECUTABLE_FILE);
+let updateState = { state: 'idle' };
+
+function sendUpdate(s) {
+  updateState = s;
+  if (win && !win.isDestroyed()) win.webContents.send('update:status', s);
+}
+
+const firstLine = (e) => String((e && e.message) || e).split(/\r?\n/)[0];
+
+// True when version a is newer than version b ("2.1.0" > "2.0.9").
+function isNewer(a, b) {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
+async function checkViaGithub() {
+  const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'IQRA' },
+  });
+  if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+  const rel = await res.json();
+  const version = String(rel.tag_name || '').replace(/^v/, '');
+  if (isNewer(version, app.getVersion())) sendUpdate({ state: 'available-manual', version, url: rel.html_url });
+  else sendUpdate({ state: 'current' });
+}
+
+async function checkForUpdates() {
+  if (!app.isPackaged) { sendUpdate({ state: 'dev' }); return updateState; }
+  sendUpdate({ state: 'checking' });
+  try {
+    if (PORTABLE) await checkViaGithub();
+    else await autoUpdater.checkForUpdates();
+  } catch (e) {
+    sendUpdate({ state: 'error', message: firstLine(e) });
+  }
+  return updateState;
+}
+
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true; // if you ignore the prompt, the update installs the next time you quit
+autoUpdater.logger = null;
+autoUpdater.on('update-available', (info) => sendUpdate({ state: 'downloading', version: info.version, percent: 0 }));
+autoUpdater.on('download-progress', (p) => sendUpdate({ state: 'downloading', version: updateState.version, percent: Math.round(p.percent) }));
+autoUpdater.on('update-downloaded', (info) => sendUpdate({ state: 'ready', version: info.version }));
+autoUpdater.on('update-not-available', () => sendUpdate({ state: 'current' }));
+autoUpdater.on('error', (e) => sendUpdate({ state: 'error', message: firstLine(e) }));
+
+ipcMain.handle('app:version', () => app.getVersion());
+ipcMain.handle('update:check', checkForUpdates);
+ipcMain.handle('update:state', () => updateState);
+ipcMain.handle('update:install', () => { if (updateState.state === 'ready') autoUpdater.quitAndInstall(); });
+ipcMain.handle('update:open-release', () => {
+  if (updateState.url && updateState.url.startsWith(`https://github.com/${REPO}/`)) shell.openExternal(updateState.url);
+});
+
 // ---------- Window ----------
 // Window size and position are remembered between runs.
 const boundsFile = () => path.join(app.getPath('userData'), 'window.json');
@@ -159,6 +224,7 @@ function createWindow() {
     minWidth: 860,
     minHeight: 560,
     title: 'IQRA',
+    icon: path.join(__dirname, 'assets', 'logo-512.png'),
     backgroundColor: '#ece6d8',
     autoHideMenuBar: true,
     show: false,
@@ -207,5 +273,7 @@ app.whenReady().then(() => {
     }
   });
   createWindow();
+  setTimeout(checkForUpdates, 8000);
+  setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
 });
 app.on('window-all-closed', () => app.quit());
