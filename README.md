@@ -2,6 +2,11 @@
 
 A Windows desktop Qur'an reader built with Electron. Everything except audio streaming works offline.
 
+## Download
+
+Grab the installer or the portable .exe from the [latest release](https://github.com/SamaOmmy/Qur-An/releases/latest) (Windows 10/11, 64-bit).
+The builds are not code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
+
 ## Features
 
 - **Three reading views**
