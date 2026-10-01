@@ -60,8 +60,8 @@ async function pool(jobs, limit, label) {
   const wordJobs = Array.from({ length: 114 }, (_, i) => i + 1).map((n) => ({
     name: `words ${n}`,
     run: () => cached(
-      `words/${n}.json`,
-      `https://api.quran.com/api/v4/verses/by_chapter/${n}?words=true&word_fields=text_uthmani,line_number,page_number&word_translation_language=en&per_page=300&fields=page_number`,
+      `words-v2/${n}.json`,
+      `https://api.quran.com/api/v4/verses/by_chapter/${n}?words=true&mushaf=1&word_fields=text_uthmani,text_qpc_hafs,code_v2,line_number,page_number&word_translation_language=en&per_page=300&fields=page_number`,
     ),
   }));
   failures += await pool(wordJobs, 4, 'word-by-word');

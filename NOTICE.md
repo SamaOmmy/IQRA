@@ -7,10 +7,11 @@ own terms. They are included here for reading inside the app, not relicensed.
 | Content | Source | Notes |
 | --- | --- | --- |
 | Arabic Uthmani text, translations, transliteration | [Al Quran Cloud](https://alquran.cloud) (API), which draws on the [Tanzil Project](https://tanzil.net) and other publishers | Each translation is the work of its credited translator (see the translation name in the app). The Arabic text must not be altered. |
-| Word-by-word meanings, transliteration, Madani mushaf page and line layout | [Quran.com API](https://quran.com) (Quran Foundation) | |
+| Word-by-word meanings, transliteration, Madani mushaf page and line layout, glyph codes | [Quran.com API](https://quran.com) (Quran Foundation) | The glyph codes (`data/qcf/`) only make sense with the optional fonts and are git-ignored too. |
 | Tafsir (Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar, Al-Muyassar, As-Sa'di) | [spa5k/tafsir_api](https://github.com/spa5k/tafsir_api), sourced from quran.com | Each tafsir is the work of its author and publisher. |
 | Audio | [EveryAyah](https://everyayah.com) | Streamed and cached on the user's computer; no audio is stored in this repository. |
-| Amiri Quran font | [The Amiri Project](https://github.com/aliftype/amiri) | SIL Open Font License 1.1, see `src/fonts/OFL-AmiriQuran.txt`. |
+| Scheherazade New font | [SIL International](https://software.sil.org/scheherazade/) | SIL Open Font License 1.1, see `src/fonts/OFL-ScheherazadeNew.txt`. Always bundled. |
+| Madani mushaf fonts (optional) | King Fahd Glorious Qur'an Printing Complex, distributed by [Quran Foundation](https://api-docs.quran.foundation/legal/mushaf-fonts-and-images/) | **Not included in this repository.** Fetched by `npm run fetch-fonts` into a git-ignored folder. The terms allow bundling the fonts in an application for the app's own use, require crediting Quran Foundation, and do not allow offering the files separately. Read them before distributing a build that includes these fonts. |
 | Electron | [electronjs.org](https://www.electronjs.org) | MIT. Bundled in the Windows builds. |
 
 If you are the author or rights holder of any translation or tafsir included here and would like it removed or

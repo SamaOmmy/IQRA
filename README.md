@@ -1,64 +1,72 @@
-# Qur'an Reader
+# IQRA
 
-A Windows desktop Qur'an reader built with Electron. Everything except audio streaming works offline.
+**IQRA** (اقرأ, "Read") is a free, open-source Qur'an reader for Windows, built with Electron. Everything except audio streaming works offline.
 
 ## Download
 
 Grab the installer or the portable .exe from the [latest release](https://github.com/SamaOmmy/Qur-An/releases/latest) (Windows 10/11, 64-bit).
 The builds are not code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
 
-## Features
+## What it does
 
-- **Three reading views**
-  - *Verses*: each verse with translation(s)
-  - *Text*: continuous Arabic text
-  - *Pages*: the 604-page Madani mushaf, with the printed line breaks, surah banners and verse markers
-- **62 translations** in 40+ languages (plus transliteration), with an optional second translation shown side by side
-- **Word-by-word** meanings and transliteration
-- **Tafsir** drawer for the current verse: Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar (English); Al-Muyassar, As-Sa'di (Arabic)
-- Browse by Surah, Juz or mushaf page; search Arabic (diacritics ignored) or the selected translation; jump with `2:255`
-- Saved verses; the app reopens where you left off
-- **Audio**: 21 reciters, playback speed, continue into the next surah
-- **Offline audio**: every verse you listen to is cached automatically; the *Offline* tab downloads whole surahs (or the whole Qur'an) per reciter
-- Light / Sepia / Dark themes, adjustable text size
-
-## Run
-
-    npm install
-    npm start
-
-## Build a Windows installer
-
-    npm run dist     # NSIS installer + portable .exe in dist/
-    npm run pack     # unpacked app folder only (faster, for testing)
+- **Mushaf view**: the 604-page Madani mushaf, laid out exactly like the printed book (15 lines per page, surah banners, verse markers). The page fits your window, and two pages show side by side like an open book when there is room. Flip with ← / →, zoom with Ctrl + wheel.
+- **Verses view**: verse by verse with translation, transliteration and word-by-word meanings.
+- **Study panel** (press `T`): translation, word-by-word and tafsir for the selected verse, beside the page.
+- **Jump anywhere** with `Ctrl+K`: a surah name, `2:255`, `page 300`, `juz 20`, or a word to search for.
+- 62 translations in 40+ languages, with an optional second translation shown side by side.
+- Tafsir: Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar, Al-Muyassar, As-Sa'di.
+- Audio from 21 reciters with playback speed; every verse you hear is cached, and the Offline panel downloads whole surahs.
+- Search the Arabic (diacritics ignored) or the selected translation; saved verses; reopens where you left off.
+- Light, Sepia and Dark themes.
 
 ## Shortcuts
 
 | Key | Action |
 | --- | --- |
+| Ctrl+K | Jump to a surah, verse, page or juz |
+| ← / → | Next / previous page (the book turns right to left) |
 | Space | Play / pause |
 | N / P | Next / previous verse |
-| B | Save current verse |
-| T | Open / close tafsir |
+| B | Save the selected verse |
+| T | Open / close the study panel |
 | Ctrl+F | Search |
-| Ctrl + / Ctrl - | Text size |
-| Alt+Left / Alt+Right | Previous / next surah (page in Pages view) |
-| Esc | Close popover / tafsir |
+| Ctrl+L | Library (surahs and juz) |
+| Ctrl + / Ctrl - / Ctrl+0 | Zoom in / out / reset |
+| Esc | Close the open panel |
 
 Click a verse to select it, double-click to play it.
 
+## Run from source
+
+    npm install
+    npm start
+
+## The Madani mushaf script (optional fonts)
+
+IQRA always works with the open-licensed Scheherazade New font. For the authentic look of the printed Madani mushaf
+(the King Fahd Glorious Qur'an Printing Complex script), download the fonts once:
+
+    npm run fetch-fonts
+
+The fonts are never committed to this repository: their terms allow bundling them inside an application but not
+offering them separately. See [NOTICE.md](NOTICE.md) before you publish a build that includes them.
+
+## Build a Windows installer
+
+    npm run dist     # installer + portable .exe in dist/
+    npm run pack     # unpacked app folder only (faster, for testing)
+
 ## Data
 
-The app reads generated files from `data/` (`quran.json`, `translations/`, `words/`, `pages/`, `tafsir/`).
-They are built from public sources by two scripts; the raw downloads live in `data/raw/` (git-ignored):
+The app reads generated files from `data/`. They are built from public sources by two scripts; the raw downloads live in `data/raw/` (git-ignored):
 
-    npm run fetch-data   # downloads: alquran.cloud (text, translations), quran.com API (word-by-word, page layout), spa5k/tafsir_api (tafsir)
+    npm run fetch-data   # alquran.cloud (text, translations), quran.com API (words, page layout), spa5k/tafsir_api (tafsir)
     npm run build-data   # compacts them into data/
 
-Which translations and tafsirs are bundled is listed in `scripts/data-config.js`; add one there and re-run both scripts.
-Audio comes from everyayah.com and is cached under the app's user-data folder (`Offline` tab -> *Open folder*).
+Which translations and tafsirs are bundled is listed in `scripts/data-config.js`.
+Audio comes from everyayah.com and is cached in the app's user-data folder (Offline panel, then *Open folder*).
 
 ## License
 
-The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir and font are
+The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir and fonts are
 third-party content under their own terms; see [NOTICE.md](NOTICE.md) for sources and attribution.

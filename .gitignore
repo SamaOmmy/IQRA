@@ -4,3 +4,7 @@ dist/
 
 # Raw downloads; regenerate with `npm run fetch-data`
 data/raw/
+
+# Authentic mushaf fonts and glyph data (King Fahd Complex / Quran Foundation terms: not to be offered separately)
+src/fonts/mushaf/
+data/qcf/

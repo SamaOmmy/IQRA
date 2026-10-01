@@ -3,6 +3,7 @@
 
 const Q = window.api.loadQuran();
 const S = Q.surahs;
+const MUSHAF = window.api.mushaf(); // { qcf, hafs }: which authentic fonts are installed (both optional)
 
 const RECITERS = [
   ['Alafasy_128kbps', 'Mishary Alafasy'],
@@ -29,23 +30,25 @@ const RECITERS = [
 ];
 const THEMES = ['light', 'sepia', 'dark'];
 const RTL_LANGS = new Set(['ar', 'fa', 'ur', 'ps', 'sd', 'ug', 'dv', 'ku']);
-const STORE_KEY = 'quran-reader-state';
+const STORE_KEY = 'iqra-state';
 
 // ---------- State ----------
 const defaults = {
-  surah: 1, ayah: 1, page: 1, theme: 'light', arSize: 34, trSize: 17,
+  surah: 1, ayah: 1, page: 1, theme: 'light',
+  view: 'mushaf', zoom: 1, spread: true, arSize: 30, trSize: 16,
   showTr: true, tr1: 'en.sahih', tr2: '', translit: false, wbw: false,
-  view: 'verse', reciter: RECITERS[0][0], speed: 1, continuous: true,
-  tafsir: Q.tafsirs[0].id, tafsirOpen: false, bookmarks: [],
+  reciter: RECITERS[0][0], speed: 1, continuous: true,
+  tafsir: Q.tafsirs[0].id, studyOpen: false, studyTab: 'translation', bookmarks: [],
 };
 const state = { ...defaults, ...loadState() };
-if (state.view === 'mushaf') state.view = 'flow'; // v1 name
+if (state.view !== 'mushaf' && state.view !== 'verses') state.view = state.view === 'pages' ? 'mushaf' : 'verses'; // names from v1
 if (!Q.translations.some((t) => t.id === state.tr1)) state.tr1 = defaults.tr1;
 if (state.tr2 && !Q.translations.some((t) => t.id === state.tr2)) state.tr2 = '';
 if (!Q.tafsirs.some((t) => t.id === state.tafsir)) state.tafsir = defaults.tafsir;
 if (!RECITERS.some(([id]) => id === state.reciter)) state.reciter = defaults.reciter;
+if (!['translation', 'words', 'tafsir'].includes(state.studyTab)) state.studyTab = 'translation';
 
-let current = { s: state.surah, a: state.ayah }; // selected / playing verse
+let current = { s: state.surah, a: state.ayah }; // the selected / playing verse
 
 function loadState() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; }
@@ -64,6 +67,9 @@ const surahOf = (n) => S[n - 1];
 const ayahOf = (s, a) => S[s - 1].ayahs[a - 1];
 const pageOf = (s, a) => ayahOf(s, a).page;
 const isBookmarked = (s, a) => state.bookmarks.some((b) => b.s === s && b.a === a);
+
+const stage = $('#stage');
+const reader = $('#reader');
 
 let toastTimer;
 function toast(msg) {
@@ -101,11 +107,31 @@ function translationText(id, s, a) {
 function transliterationText(s, a) {
   try { return data('translations/en.transliteration.json')[ayahOf(s, a).g - 1] || ''; } catch { return ''; }
 }
+// Word entries: [uthmani, meaning, transliteration, qpc-hafs]
 function wordsOf(s, a) {
   try { return data(`words/${s}.json`)[a - 1] || []; } catch { return []; }
+}
+// Arabic for a verse in the best script available: the KFGQPC Hafs text when its font is installed.
+function arabicText(s, a) {
+  if (MUSHAF.hafs) {
+    const w = wordsOf(s, a);
+    if (w.length) return w.map((x) => x[3] || x[0]).join(' ');
+  }
+  return ayahOf(s, a).a;
 }
 
 function firstVerseOfPage(p) {
   const w = data(`pages/${p}.json`)[0];
   return { s: w[0], a: w[1] };
 }
+
+// ---------- Fonts ----------
+// Scheherazade New (open licence) is always bundled. The KFGQPC fonts are optional extras, see scripts/fetch-fonts.js.
+const fontsReady = (async () => {
+  const loads = [document.fonts.load('32px "Scheherazade New"', 'بسم')];
+  if (MUSHAF.hafs) {
+    const face = new FontFace('UthmanicHafs', 'url(fonts/mushaf/UthmanicHafs.woff2)');
+    loads.push(face.load().then((f) => { document.fonts.add(f); document.documentElement.classList.add('hafs'); }).catch(() => {}));
+  }
+  await Promise.all(loads);
+})();

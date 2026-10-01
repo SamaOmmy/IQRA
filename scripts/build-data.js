@@ -1,8 +1,9 @@
 // Turns the raw downloads in data/raw/ into the compact files the app loads:
 //   data/quran.json              surahs, verses, default translation, manifests
 //   data/translations/<id>.json  one string per verse (global verse order)
-//   data/words/<surah>.json      word-by-word meanings per verse
-//   data/pages/<page>.json       Madani mushaf page layout (words with line numbers)
+//   data/words/<surah>.json      word-by-word per verse: [uthmani, meaning, transliteration, qpc-hafs]
+//   data/pages/<page>.json       Madani mushaf page layout (words with line numbers, QCF V2 layout)
+//   data/qcf/<page>.json         QCF V2 glyph strings aligned with pages/<page>.json (git-ignored, see NOTICE.md)
 //   data/tafsir/<id>/<surah>.json  one entry per verse (string, or a number pointing at the verse that holds a shared text)
 const fs = require('fs');
 const path = require('path');
@@ -23,12 +24,13 @@ const enSurahs = readRaw('en.sahih.json').data.surahs;
 
 // ---- Words / pages -------------------------------------------------------
 const pages = Array.from({ length: 605 }, () => []);
+const qcf = Array.from({ length: 605 }, () => []);
 const wordsBySurah = [];
 const versePage = {}; // "s:a" -> first page of the verse
 const wordTypes = new Set();
 
 for (let n = 1; n <= 114; n++) {
-  const verses = readRaw('words', `${n}.json`).verses;
+  const verses = readRaw('words-v2', `${n}.json`).verses;
   if (verses.length !== arSurahs[n - 1].ayahs.length) throw new Error(`Surah ${n}: word data has ${verses.length} verses`);
   wordsBySurah[n] = verses.map((v) => {
     const a = +v.verse_key.split(':')[1];
@@ -39,7 +41,8 @@ for (let n = 1; n <= 114; n++) {
       const text = clean(w.text_uthmani);
       if (!versePage[`${n}:${a}`]) versePage[`${n}:${a}`] = w.page_number;
       pages[w.page_number].push([n, a, text, w.line_number, (isEnd ? 1 : 0) | (w.position === 1 ? 2 : 0)]);
-      if (!isEnd) list.push([text, clean(w.translation?.text), clean(w.transliteration?.text)]);
+      qcf[w.page_number].push(w.code_v2 || '');
+      if (!isEnd) list.push([text, clean(w.translation?.text), clean(w.transliteration?.text), clean(w.text_qpc_hafs)]);
     });
     return list;
   });
@@ -50,6 +53,7 @@ let pageCount = 0;
 for (let p = 1; p <= 604; p++) {
   if (!pages[p].length) throw new Error(`Page ${p} has no words`);
   write(`pages/${p}.json`, pages[p]);
+  write(`qcf/${p}.json`, qcf[p]);
   pageCount++;
 }
 for (let n = 1; n <= 114; n++) write(`words/${n}.json`, wordsBySurah[n]);

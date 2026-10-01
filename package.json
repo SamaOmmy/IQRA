@@ -1,24 +1,26 @@
 {
-  "name": "quran-reader",
-  "version": "1.0.0",
-  "description": "A Qur'an reader for Windows",
+  "name": "iqra",
+  "version": "2.0.0",
+  "description": "IQRA: a beautiful Qur'an reader for Windows",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "build-data": "node scripts/build-data.js",
     "dist": "electron-builder --win",
     "fetch-data": "node scripts/fetch-data.js",
-    "pack": "electron-builder --win dir"
+    "pack": "electron-builder --win dir",
+    "fetch-fonts": "node scripts/fetch-fonts.js"
   },
   "build": {
-    "appId": "com.quranreader.app",
-    "productName": "Qur'an Reader",
+    "appId": "io.github.samaommy.iqra",
+    "productName": "IQRA",
     "files": [
       "src/**/*",
       "data/quran.json",
       "data/translations/**",
       "data/words/**",
       "data/pages/**",
+      "data/qcf/**",
       "data/tafsir/**",
       "package.json"
     ],
@@ -27,14 +29,17 @@
         "nsis",
         "portable"
       ]
+    },
+    "nsis": {
+      "artifactName": "IQRA-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "IQRA-${version}-portable.${ext}"
     }
   },
   "devDependencies": {
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3"
-  },
-  "dependencies": {
-    "@fontsource/amiri-quran": "^5.3.0"
   },
   "license": "MIT",
   "author": "Sama Ommy",

@@ -56,6 +56,9 @@ function skip(dir) {
   if (to) playVerse(to.s, to.a);
 }
 
+audio.addEventListener('timeupdate', () => {
+  $('#p-progress i').style.width = audio.duration ? `${(audio.currentTime / audio.duration) * 100}%` : '0';
+});
 audio.addEventListener('play', setNowPlayingLabel);
 audio.addEventListener('pause', setNowPlayingLabel);
 audio.addEventListener('ended', () => {
@@ -64,7 +67,7 @@ audio.addEventListener('ended', () => {
   else { playing = null; setNowPlayingLabel(); }
 });
 audio.addEventListener('error', () => {
-  toast('Could not load audio. Check your internet connection, or download this surah in the Offline tab.');
+  toast('Could not load audio. Check your internet connection, or download this surah from the Offline panel.');
   $('#p-play').textContent = '▶';
 });
 
@@ -82,7 +85,7 @@ $('#reciter').addEventListener('change', (e) => {
     playVerse(playing.s, playing.a);
     if (wasPaused) audio.pause();
   }
-  if ($('#panel-offline').classList.contains('active')) refreshOffline();
+  if (drawerPanel === 'offline') refreshOffline();
 });
 
 // ---------- Offline panel ----------

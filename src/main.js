@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, protocol, net, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, protocol, net, ipcMain, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -143,14 +143,23 @@ ipcMain.handle('audio:open-folder', async () => {
 });
 
 // ---------- Window ----------
+// Window size and position are remembered between runs.
+const boundsFile = () => path.join(app.getPath('userData'), 'window.json');
+function loadBounds() {
+  try { return JSON.parse(fs.readFileSync(boundsFile(), 'utf8')); } catch { return {}; }
+}
+
 function createWindow() {
+  const saved = loadBounds();
   win = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 900,
-    minHeight: 600,
-    title: "Qur'an Reader",
-    backgroundColor: '#f6f1e7',
+    width: saved.width || 1400,
+    height: saved.height || 900,
+    x: saved.x,
+    y: saved.y,
+    minWidth: 860,
+    minHeight: 560,
+    title: 'IQRA',
+    backgroundColor: '#ece6d8',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -162,8 +171,14 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
+  if (saved.maximized) win.maximize();
   win.loadFile(path.join(__dirname, 'index.html'));
   win.once('ready-to-show', () => win.show());
+  win.on('close', () => {
+    const maximized = win.isMaximized();
+    const b = maximized ? (saved.width ? saved : {}) : win.getBounds();
+    try { fs.writeFileSync(boundsFile(), JSON.stringify({ ...b, maximized })); } catch { /* not critical */ }
+  });
 
   // Never navigate the app window away; open any external link in the default browser.
   win.webContents.setWindowOpenHandler(({ url }) => {
