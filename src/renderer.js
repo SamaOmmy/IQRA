@@ -64,6 +64,7 @@ function renderVerses() {
 // Re-render in place without losing the scroll position.
 function rerenderView() {
   if (state.view === 'mushaf') { renderMushaf(); return; }
+  if (state.view === 'discover') { const t = reader.scrollTop; renderDiscover(); reader.scrollTop = t; return; }
   const top = reader.scrollTop;
   renderVerses();
   reader.scrollTop = top;
@@ -71,6 +72,13 @@ function rerenderView() {
 
 // ---------- Navigation ----------
 function updateLocation() {
+  if (state.view === 'discover') {
+    const h = hijriOf(new Date());
+    $('#loc-main').textContent = 'Discover';
+    $('#loc-sub').textContent = `${h.d} ${HIJRI_MONTHS[h.m - 1]} ${h.y} AH`;
+    document.title = 'Discover \u00b7 IQRA';
+    return;
+  }
   const s = surahOf(current.s);
   $('#loc-main').textContent = `${s.n}. ${s.en}`;
   $('#loc-sub').textContent = `${s.ar} · Juz ${ayahOf(current.s, current.a).juz} · Page ${pageOf(current.s, current.a)} · Verse ${current.a}`;
@@ -88,7 +96,10 @@ function afterVerseChange() {
 }
 
 function renderCurrentView() {
-  if (state.view === 'mushaf') {
+  if (state.view === 'discover') {
+    renderDiscover();
+    reader.scrollTop = 0;
+  } else if (state.view === 'mushaf') {
     renderMushaf().then(() => { reader.scrollTop = 0; });
   } else {
     renderVerses();
@@ -112,6 +123,7 @@ const openSurah = navigateTo;
 // Make sure a verse is on screen (changing page or surah if needed) and highlight it. Used by playback and stepping.
 function showVerse(s, a, { scroll = false } = {}) {
   current = { s, a };
+  if (state.view === 'discover') { setNowPlayingLabel(); return; } // listening from Discover must not pull you into the reader
   const present = state.view === 'mushaf'
     ? $(`[data-s="${s}"][data-ayah="${a}"]`, reader)
     : s === state.surah;
@@ -144,6 +156,7 @@ function stepContainer(dir) {
 function setView(v) {
   if (state.view === v) return;
   state.view = v;
+  if (v !== 'discover') state.readView = v;
   if (v === 'mushaf') state.page = pageOf(current.s, current.a);
   save();
   applyPrefs();
@@ -220,8 +233,13 @@ function applyPrefs() {
   root.style.setProperty('--tr-size', `${state.trSize}px`);
   $('#view-mushaf').classList.toggle('active', state.view === 'mushaf');
   $('#view-verses').classList.toggle('active', state.view === 'verses');
+  $('#view-discover').classList.toggle('active', state.view === 'discover');
+  $('.zoom').hidden = state.view === 'discover';
+  $('#flip-prev').hidden = state.view !== 'mushaf';
+  $('#flip-next').hidden = state.view !== 'mushaf';
   stage.classList.toggle('is-mushaf', state.view === 'mushaf');
   $('#chk-spread').checked = state.spread;
+  $('#chk-flip').checked = state.flipAnim;
   $('#chk-showtr').checked = state.showTr;
   $('#chk-translit').checked = state.translit;
   $('#chk-wbw').checked = state.wbw;
@@ -243,7 +261,7 @@ function applyPrefs() {
 function onTranslationChanged() {
   $('#sel-tr1').value = state.tr1;
   $('#sel-tr2').value = state.tr2;
-  if (state.view === 'verses') rerenderView();
+  if (state.view === 'verses' || state.view === 'discover') rerenderView();
   if (drawerPanel === 'saved') renderSaved();
   if (drawerPanel === 'search') runSearch();
 }
@@ -257,6 +275,7 @@ $('#settings-close').addEventListener('click', closeSettings);
 modal.addEventListener('mousedown', (e) => { if (e.target === modal) closeSettings(); });
 $('#sel-tr1').addEventListener('change', (e) => { state.tr1 = e.target.value; save(); onTranslationChanged(); studyRefresh(); });
 $('#sel-tr2').addEventListener('change', (e) => { state.tr2 = e.target.value; save(); onTranslationChanged(); studyRefresh(); });
+$('#chk-flip').addEventListener('change', (e) => { state.flipAnim = e.target.checked; save(); });
 $('#chk-spread').addEventListener('change', (e) => { state.spread = e.target.checked; save(); if (state.view === 'mushaf') renderMushaf(); });
 $('#chk-showtr').addEventListener('change', (e) => { state.showTr = e.target.checked; save(); if (state.view === 'verses') rerenderView(); });
 $('#chk-translit').addEventListener('change', (e) => { state.translit = e.target.checked; save(); if (state.view === 'verses') rerenderView(); });
@@ -291,6 +310,7 @@ reader.addEventListener('dblclick', (e) => {
 
 $('#view-mushaf').addEventListener('click', () => setView('mushaf'));
 $('#view-verses').addEventListener('click', () => setView('verses'));
+$('#view-discover').addEventListener('click', () => setView('discover'));
 $('#flip-next').addEventListener('click', () => mushafStep(1));
 $('#flip-prev').addEventListener('click', () => mushafStep(-1));
 $('#zoom-in').addEventListener('click', () => zoomBy(1));
@@ -317,6 +337,7 @@ function closeTopmost() {
   else if (!modal.hidden) closeSettings();
   else if (!drawerEl.hidden) closeDrawer();
   else if (state.studyOpen) setStudyOpen(false);
+  else if (state.view === 'discover') discoverBack();
 }
 
 document.addEventListener('keydown', (e) => {

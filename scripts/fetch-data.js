@@ -60,11 +60,20 @@ async function pool(jobs, limit, label) {
   const wordJobs = Array.from({ length: 114 }, (_, i) => i + 1).map((n) => ({
     name: `words ${n}`,
     run: () => cached(
-      `words-v2/${n}.json`,
-      `https://api.quran.com/api/v4/verses/by_chapter/${n}?words=true&mushaf=1&word_fields=text_uthmani,text_qpc_hafs,code_v2,line_number,page_number&word_translation_language=en&per_page=300&fields=page_number`,
+      `words-v1/${n}.json`,
+      `https://api.quran.com/api/v4/verses/by_chapter/${n}?words=true&mushaf=2&word_fields=text_uthmani,text_qpc_hafs,code_v1,line_number,page_number&word_translation_language=en&per_page=300&fields=page_number`,
     ),
   }));
   failures += await pool(wordJobs, 4, 'word-by-word');
+
+  // Discover content: Hisn al-Muslim (MIT), morning/evening adhkar (MIT), Arabic text of Nawawi's Forty Hadith (public domain).
+  const discoverJobs = [
+    ['discover/hisn-en.json', 'https://raw.githubusercontent.com/YousefAsalya/Islamic-Pro-azkar-API/main/data/en.json'],
+    ['discover/hisn-ar.json', 'https://raw.githubusercontent.com/YousefAsalya/Islamic-Pro-azkar-API/main/data/ar.json'],
+    ['discover/azkar-en.json', 'https://raw.githubusercontent.com/Seen-Arabic/Morning-And-Evening-Adhkar-DB/main/result/en.json'],
+    ['discover/nawawi-ar.json', 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-nawawi.json'],
+  ].map(([file, url]) => ({ name: file, run: () => cached(file, url) }));
+  failures += await pool(discoverJobs, 4, 'discover');
 
   await cached('tafsir-editions.json', 'https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/editions.json');
   const tafsirJobs = [];

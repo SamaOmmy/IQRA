@@ -1,6 +1,6 @@
 {
   "name": "iqra",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "IQRA: a beautiful Qur'an reader for Windows",
   "main": "src/main.js",
   "scripts": {

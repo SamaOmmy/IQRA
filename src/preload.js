@@ -4,7 +4,7 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 // Only the generated, bundled files are readable from the page (never data/raw or anything outside data/).
-const DATA_FILE_RE = /^(quran|(translations|words|pages|qcf|tafsir)\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?)\.json$/;
+const DATA_FILE_RE = /^(quran|(translations|words|pages|qcf|tafsir|discover)\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?)\.json$/;
 
 function readData(rel) {
   if (!DATA_FILE_RE.test(rel) || rel.includes('..')) throw new Error(`Not a data file: ${rel}`);

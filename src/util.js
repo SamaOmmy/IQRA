@@ -35,13 +35,13 @@ const STORE_KEY = 'iqra-state';
 // ---------- State ----------
 const defaults = {
   surah: 1, ayah: 1, page: 1, theme: 'light',
-  view: 'mushaf', zoom: 1, spread: true, arSize: 30, trSize: 16,
+  view: 'mushaf', readView: 'mushaf', zoom: 1, spread: true, flipAnim: true, arSize: 30, trSize: 16,
   showTr: true, tr1: 'en.sahih', tr2: '', translit: false, wbw: false,
   reciter: RECITERS[0][0], speed: 1, continuous: true,
   tafsir: Q.tafsirs[0].id, studyOpen: false, studyTab: 'translation', bookmarks: [],
 };
 const state = { ...defaults, ...loadState() };
-if (state.view !== 'mushaf' && state.view !== 'verses') state.view = state.view === 'pages' ? 'mushaf' : 'verses'; // names from v1
+if (!['mushaf', 'verses', 'discover'].includes(state.view)) state.view = state.view === 'pages' ? 'mushaf' : 'verses'; // names from v1
 if (!Q.translations.some((t) => t.id === state.tr1)) state.tr1 = defaults.tr1;
 if (state.tr2 && !Q.translations.some((t) => t.id === state.tr2)) state.tr2 = '';
 if (!Q.tafsirs.some((t) => t.id === state.tafsir)) state.tafsir = defaults.tafsir;

@@ -12,7 +12,7 @@ const BASE = 'https://verses.quran.foundation/fonts/quran/hafs';
 fs.mkdirSync(OUT, { recursive: true });
 
 const files = [{ name: 'UthmanicHafs.woff2', url: `${BASE}/uthmanic_hafs/UthmanicHafs1Ver18.woff2` }];
-for (let p = 1; p <= 604; p++) files.push({ name: `p${p}.woff2`, url: `${BASE}/v2/woff2/p${p}.woff2` });
+for (let p = 1; p <= 604; p++) files.push({ name: `p${p}.woff2`, url: `${BASE}/v1/woff2/p${p}.woff2` });
 
 async function download({ name, url }) {
   const dest = path.join(OUT, name);
