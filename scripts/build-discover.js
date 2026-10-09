@@ -65,7 +65,7 @@ write('discover/nawawi.json', nawawi);
 console.log(`Discover: ${hisn.length} Hisn categories (${hisn.reduce((n, c) => n + c.items.length, 0)} adhkar), ${azkar.length} morning/evening adhkar, ${nawawi.length} hadith`);
 
 // ---- Hadith library: Arabic from the classical collections, checked against the curated phrase ----
-const curated = require('./hadith-curation');
+const curated = [...require('./hadith-curation'), ...require('./hadith-curation-2')];
 const strip = (s) => s.replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[آأإٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
 const collections = {};
 const collection = (book) => (collections[book] ||= new Map(read(`ara-${book}.json`).hadiths.map((h) => [h.hadithnumber, h.text])));

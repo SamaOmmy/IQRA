@@ -6,6 +6,8 @@ const hadithData = () => data('discover/hadith.json');
 const HADITH_THEMES = [
   ['manners', 'Character and manners'], ['mercy', 'Mercy and family'], ['faith', 'Faith and trust in Allah'],
   ['worship', 'Worship and remembrance'], ['knowledge', 'Knowledge and ongoing good'], ['charity', 'Charity and generosity'],
+  ['dua', 'Dua and dhikr'], ['family', 'Parents and family'], ['brotherhood', 'Brotherhood and community'],
+  ['trade', 'Work and honest dealing'], ['hardship', 'Hardship and the Hereafter'],
 ];
 
 const isFav = (key) => state.favs.includes(key);
@@ -46,14 +48,18 @@ function pageHadith(theme) {
 }
 
 // ---------- Stories ----------
-const storiesOf = (shelf) => DISCOVER.stories.filter((s) => s.shelf === shelf).sort((a, b) => (a.n || 0) - (b.n || 0));
+const storiesOf = (shelf) => {
+  const list = DISCOVER.stories.filter((s) => s.shelf === shelf).sort((a, b) => (a.ord ?? a.n ?? 0) - (b.ord ?? b.n ?? 0));
+  if (shelf === 'sira') list.forEach((s, i) => { s.n = i + 1; }); // the life of the Prophet is numbered in order
+  return list;
+};
 
 function storyCard(st) {
   const first = st.p[0].replace(/\s+/g, ' ');
   return `<button class="d-card nav story-card" data-go="story/${esc(st.id)}">
     ${st.ar ? `<span class="d-card-ar">${esc(st.ar)}</span>` : ''}
     <span class="d-card-title">${st.n ? `${st.n}. ` : ''}${esc(st.title)}</span>
-    ${st.era ? `<span class="d-card-era">${esc(st.era)}</span>` : ''}
+    <span class="d-card-era">${st.era ? `${esc(st.era)} · ` : ''}${readingMinutes(st)} min${deepOf(st.id) ? ' · in depth' : ''}</span>
     <span class="d-card-sub">${esc(first.length > 120 ? first.slice(0, 118).replace(/\s+\S*$/, '') + '…' : first)}</span>
   </button>`;
 }
@@ -66,19 +72,30 @@ function pageShelf(id) {
     <div class="d-grid stories">${list.map(storyCard).join('')}</div>`;
 }
 
+const deepOf = (id) => (DISCOVER.deep && DISCOVER.deep[id]) || null;
+const wordCount = (s) => s.split(/\s+/).filter(Boolean).length;
+function readingMinutes(st) {
+  const d = deepOf(st.id);
+  const n = wordCount(st.p.join(' ')) + (d ? d.s.reduce((a, sec) => a + wordCount(sec.t.join(' ')), 0) : 0);
+  return Math.max(1, Math.round(n / 190));
+}
+
 function pageStory(id) {
   const st = DISCOVER.stories.find((s) => s.id === id);
+  const deep = deepOf(id);
   const shelf = DISCOVER.shelves.find((s) => s.id === st.shelf);
   const list = storiesOf(st.shelf);
   const i = list.findIndex((s) => s.id === id);
   const prev = list[i - 1], next = list[i + 1];
   return `<div class="d-head">
       <button class="dbtn back" data-back>‹ Back</button>
-      <div><div class="d-eyebrow"><button class="linklike" data-go="shelf/${esc(shelf.id)}">${esc(shelf.title)}</button>${st.era ? ` · ${esc(st.era)}` : ''}</div>
+      <div><div class="d-eyebrow"><button class="linklike" data-go="shelf/${esc(shelf.id)}">${esc(shelf.title)}</button>${st.era ? ` · ${esc(st.era)}` : ''} · ${readingMinutes(st)} min read</div>
       <h1>${st.n ? `${st.n}. ` : ''}${esc(st.title)}</h1>${st.ar ? `<div class="d-head-ar">${esc(st.ar)}</div>` : ''}</div>
     </div>
+    ${deep && deep.facts ? `<dl class="facts">${deep.facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
     <article class="story">
       ${st.p.map((t) => `<p>${esc(t)}</p>`).join('')}
+      ${deep ? `<h2 class="d-h2 in-depth">In depth</h2>${deep.s.map((sec) => `<section class="deep"><h3>${esc(sec.h)}</h3>${sec.t.map((t) => `<p>${esc(t)}</p>`).join('')}</section>`).join('')}` : ''}
       <aside class="lessons"><h3>What we can take from it</h3><ul>${st.l.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></aside>
       <p class="src story-src">Source: ${esc(st.src || '')}</p>
       <div class="dactions">${favButton('story:' + st.id)}<button class="dbtn" data-dact="copy-story" data-id="${esc(st.id)}">Copy</button></div>
@@ -110,7 +127,8 @@ function discoverSearch(raw) {
   const clip = (t) => (t.length > 130 ? t.slice(0, 128).replace(/\s+\S*$/, '') + '…' : t);
 
   for (const st of DISCOVER.stories) {
-    if (has(st.title) || has(st.ar || '') || st.p.some(has) || st.l.some(has)) add(`story/${st.id}`, DISCOVER.shelves.find((s) => s.id === st.shelf).title, st.title, clip(st.p[0]));
+    const dd = deepOf(st.id);
+    if (has(st.title) || has(st.ar || '') || st.p.some(has) || st.l.some(has) || (dd && dd.s.some((x) => has(x.h) || x.t.some(has)))) add(`story/${st.id}`, DISCOVER.shelves.find((s) => s.id === st.shelf).title, st.title, clip(st.p[0]));
   }
   for (const h of hadithData()) if (has(h.title) || has(h.en) || has(h.ar)) add(`hadith/${h.theme}`, 'Hadith', h.title, clip(h.en));
   DISCOVER.nawawi.forEach((m, i) => { if (m && (has(m.t) || has(m.s))) add('nawawi', 'Forty Hadith', `${i}. ${m.t}`, clip(m.s)); });
@@ -190,7 +208,8 @@ reader.addEventListener('click', (e) => {
   if (!act) return;
   if (act.dataset.dact === 'copy-story') {
     const st = DISCOVER.stories.find((s) => s.id === act.dataset.id);
-    copyText(`${st.title}\n\n${st.p.join('\n\n')}\n\nLessons:\n${st.l.map((l) => '- ' + l).join('\n')}\n\nSource: ${st.src || ''}`, 'Story copied');
+    const d = deepOf(st.id);
+    copyText(`${st.title}\n\n${st.p.join('\n\n')}${d ? '\n\n' + d.s.map((x) => x.h + '\n' + x.t.join('\n\n')).join('\n\n') : ''}\n\nLessons:\n${st.l.map((l) => '- ' + l).join('\n')}\n\nSource: ${st.src || ''}`, 'Story copied');
   } else if (act.dataset.dact === 'share-hadith') {
     const h = hadithData().find((x) => x.id === act.closest('.hadith').dataset.hadith);
     openShare({ ar: h.ar, tr: h.en, ref: h.src.replace(/, narrated by.*$/, '') });

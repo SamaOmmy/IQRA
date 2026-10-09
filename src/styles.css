@@ -528,3 +528,11 @@ cite { font-size: 12px; color: var(--muted); font-style: normal; }
 .c-card { fill: var(--muted); font: 600 13px var(--f-ui); }
 .c-arrow { fill: var(--accent); } .c-hub { fill: var(--gold); } .c-tick { stroke: var(--gold); stroke-width: 3; }
 .q-line { font-size: 15px; }
+
+/* ---------- In-depth stories ---------- */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 22px; margin: 6px 0 18px; padding: 14px 18px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.facts dt { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+.facts dd { margin: 1px 0 0; font-size: 14px; line-height: 1.45; }
+.in-depth { margin-top: 26px; }
+.deep h3 { font-size: 18px; margin: 22px 0 6px; color: var(--accent); }
+.deep p { font-size: 16.5px; }
