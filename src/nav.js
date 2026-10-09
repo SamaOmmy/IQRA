@@ -78,8 +78,11 @@ $('#surah-filter').addEventListener('input', renderSurahList);
 // ---------- Saved ----------
 function renderSaved() {
   const list = $('#saved-list');
+  const notes = Object.entries(state.notes).map(([k, text]) => ({ k, text, s: +k.split(':')[0], a: +k.split(':')[1] }));
+  const noteRows = notes.length ? '<li class="empty section">Your notes</li>' + notes.map((n) => `<li class="result-item" data-surah="${n.s}" data-ayah="${n.a}">
+      <span class="ref">\u270E ${esc(surahOf(n.s).en)} ${n.s}:${n.a}</span><span class="snippet">${esc(n.text.length > 120 ? n.text.slice(0, 120) + '\u2026' : n.text)}</span></li>`).join('') : '';
   if (!state.bookmarks.length) {
-    list.innerHTML = '<li class="empty">No saved verses yet. Select a verse and press B.</li>';
+    list.innerHTML = '<li class="empty">No saved verses yet. Select a verse and press B.</li>' + noteRows;
     return;
   }
   list.innerHTML = state.bookmarks.map((b) => {
@@ -88,7 +91,7 @@ function renderSaved() {
       <span class="ref">${esc(surahOf(b.s).en)} ${b.s}:${b.a}</span>
       <span class="snippet" dir="${isRtlTranslation(state.tr1) ? 'rtl' : 'ltr'}">${esc(text.length > 110 ? text.slice(0, 110) + '…' : text)}</span>
     </li>`;
-  }).join('');
+  }).join('') + noteRows;
 }
 
 // ---------- Search ----------

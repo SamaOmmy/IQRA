@@ -10,3 +10,7 @@ src/fonts/mushaf/
 data/qcf/
 
 dist-public/
+
+# scratch files
+*.tmp.*
+.scratch/

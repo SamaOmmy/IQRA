@@ -55,6 +55,7 @@ function verseBlock([s, a, b], { title = true } = {}) {
     <div class="v-trans" dir="${isRtlTranslation(state.tr1) ? 'rtl' : 'ltr'}">${tr}</div>
     <div class="dactions">
       <button class="dbtn" data-dact="read">Read in context</button>
+      <button class="dbtn" data-dact="share">Share image</button>
       <button class="dbtn" data-dact="play">▶ Listen</button>
       <button class="dbtn" data-dact="save">☆ Save</button>
       <button class="dbtn" data-dact="copy">Copy</button>
@@ -262,6 +263,7 @@ function renderDiscover() {
   reader.innerHTML = `<div class="disc">${PAGES[page](arg)}
     <p class="d-credit">Duas from Hisn al-Muslim and the morning/evening adhkar database (MIT); Arabic hadith text from the hadith-api project (public domain); summaries and collections written for IQRA. See NOTICE for details.</p></div>`;
   updateLocation();
+  if (typeof startPrayerTicker === 'function') startPrayerTicker();
 }
 
 function discoverGo(routeString, { replace = false } = {}) {
@@ -317,6 +319,7 @@ reader.addEventListener('click', (e) => {
     case 'surah': openInReader(s, 1); break;
     case 'play': playVerse(s, a); break;
     case 'play-surah': playVerse(s, 1); break;
+    case 'share': openShare(verseShareData(s, a, b)); break;
     case 'save': if (!isBookmarked(s, a)) toggleBookmark(s, a); else toast('Already saved'); break;
     case 'copy': {
       const ar = Array.from({ length: b - a + 1 }, (_, i) => arabicText(s, a + i)).join(' ');

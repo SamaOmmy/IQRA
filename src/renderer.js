@@ -37,12 +37,13 @@ function renderVerses() {
   const body = s.ayahs.map((a) => `
     <article class="v" data-s="${s.n}" data-ayah="${a.n}">
       <div class="v-side">
-        <span class="v-num">${a.n}</span>
+        <span class="v-num">${a.n}</span><span class="v-note" title="You have a note on this verse"${getNote(s.n, a.n) ? '' : ' hidden'}>✎</span>
         <span class="v-actions">
           <button class="vbtn" data-act="play" title="Listen">▶</button>
           <button class="vbtn${isBookmarked(s.n, a.n) ? ' on' : ''}" data-act="bookmark" title="Save verse">${isBookmarked(s.n, a.n) ? '★' : '☆'}</button>
           <button class="vbtn" data-act="copy" title="Copy verse">⧉</button>
-          <button class="vbtn" data-act="study" title="Study: translation, words, tafsir">ⓘ</button>
+          <button class="vbtn" data-act="study" title="Study: translation, words, tafsir, notes">ⓘ</button>
+          <button class="vbtn" data-act="share" title="Share as an image">⇗</button>
         </span>
       </div>
       <div class="v-main">
@@ -93,6 +94,7 @@ function afterVerseChange() {
   updateBookmarkButton();
   updateLocation();
   studyRefresh();
+  if (state.view === 'verses') scheduleRead([pageOf(current.s, current.a)]);
 }
 
 function renderCurrentView() {
@@ -250,6 +252,8 @@ function applyPrefs() {
   $('#reciter').value = state.reciter;
   $$('#theme-seg .seg-btn').forEach((b) => b.classList.toggle('active', b.dataset.theme === state.theme));
   $('#btn-study').classList.toggle('on', state.studyOpen);
+  $('#btn-hifz').classList.toggle('on', state.hifz);
+  stage.classList.toggle('hifz', state.hifz);
   studyPanel.hidden = !state.studyOpen;
   $('#font-note').textContent = MUSHAF.qcf
     ? 'Script: the printed Madani mushaf (King Fahd Glorious Qur\'an Printing Complex).'
@@ -297,6 +301,7 @@ reader.addEventListener('click', (e) => {
       case 'bookmark': toggleBookmark(s, a); break;
       case 'copy': copyVerse(s, a); break;
       case 'study': selectVerse(s, a); setStudyOpen(true); break;
+      case 'share': { const d = verseShareData(s, a); openShare(d); break; }
       case 'goto': navigateTo(+act.dataset.surah); break;
     }
     return;

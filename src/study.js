@@ -99,17 +99,26 @@ function tafsirTab(s, a) {
     <div class="s-tafsir${rtl ? ' rtl' : ''}">${body}</div>`;
 }
 
+function notesTab(s, a) {
+  return `<label class="s-label" for="note-text">Your note on ${esc(surahOf(s).en)} ${s}:${a}</label>
+    <textarea id="note-text" class="note-text" placeholder="What does this verse mean to you? What will you do about it?" data-s="${s}" data-a="${a}">${esc(getNote(s, a))}</textarea>
+    <p class="d-note">Saved automatically on this computer. Notes appear in the Saved panel.</p>`;
+}
+
 function renderStudy() {
   const { s, a } = current;
   $('#study-ref').textContent = `${surahOf(s).en} ${s}:${a}`;
   $('#study-sub').textContent = `Juz ${ayahOf(s, a).juz} · Page ${pageOf(s, a)}`;
   $$('[data-study]').forEach((b) => b.classList.toggle('active', b.dataset.study === state.studyTab));
   const head = `<div class="study-ar" dir="rtl">${esc(arabicText(s, a))}</div>`;
-  const tab = state.studyTab === 'words' ? wordsTab(s, a) : state.studyTab === 'tafsir' ? tafsirTab(s, a) : translationTab(s, a);
+  const tab = state.studyTab === 'words' ? wordsTab(s, a) : state.studyTab === 'tafsir' ? tafsirTab(s, a) : state.studyTab === 'notes' ? notesTab(s, a) : translationTab(s, a);
   studyBody.innerHTML = head + tab;
   studyBody.scrollTop = 0;
 }
 
+studyBody.addEventListener('input', (e) => {
+  if (e.target.id === 'note-text') setNote(+e.target.dataset.s, +e.target.dataset.a, e.target.value);
+});
 studyBody.addEventListener('change', (e) => {
   if (e.target.id === 'study-tr1') { state.tr1 = e.target.value; save(); onTranslationChanged(); renderStudy(); }
   else if (e.target.id === 'study-tr2') { state.tr2 = e.target.value; save(); onTranslationChanged(); renderStudy(); }

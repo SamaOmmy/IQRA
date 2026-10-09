@@ -431,6 +431,7 @@ async function renderMushaf() {
     setTimeout(() => overlay.remove(), 320);
   }
   warmNeighbours(pages);
+  scheduleRead(pages);
 }
 
 // While you read, quietly lay out the pages a turn would reveal so the fit is cached and the fonts are warm.

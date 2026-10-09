@@ -27,6 +27,7 @@ function hadithCard(h) {
     <div class="dua-foot">
       ${favButton('hadith:' + h.id)}
       <button class="dbtn" data-dact="copy-library-hadith">Copy</button>
+      <button class="dbtn" data-dact="share-hadith">Share image</button>
     </div>
   </article>`;
 }
@@ -147,6 +148,14 @@ function storiesHomeSection() {
   </div>`;
 }
 
+function toolsHomeSection() {
+  return `<h2 class="d-h2">Your daily tools</h2>
+    <div class="d-grid">
+      ${card('prayer', 'Prayer times and qibla', 'مواقيت الصلاة', state.loc ? `${state.loc.name}` : 'Choose your city')}
+      ${card('progress', 'Reading progress', 'ورد القراءة', 'Daily goal, streak and your khatam')}
+    </div>`;
+}
+
 function hadithHomeSection() {
   return `<h2 class="d-h2">Hadith</h2>
     <div class="d-grid">
@@ -177,11 +186,14 @@ reader.addEventListener('click', (e) => {
     toast(on ? 'Saved to your list' : 'Removed from your list');
     return;
   }
-  const act = e.target.closest('[data-dact="copy-story"], [data-dact="copy-library-hadith"]');
+  const act = e.target.closest('[data-dact="copy-story"], [data-dact="copy-library-hadith"], [data-dact="share-hadith"]');
   if (!act) return;
   if (act.dataset.dact === 'copy-story') {
     const st = DISCOVER.stories.find((s) => s.id === act.dataset.id);
     copyText(`${st.title}\n\n${st.p.join('\n\n')}\n\nLessons:\n${st.l.map((l) => '- ' + l).join('\n')}\n\nSource: ${st.src || ''}`, 'Story copied');
+  } else if (act.dataset.dact === 'share-hadith') {
+    const h = hadithData().find((x) => x.id === act.closest('.hadith').dataset.hadith);
+    openShare({ ar: h.ar, tr: h.en, ref: h.src.replace(/, narrated by.*$/, '') });
   } else {
     const card = act.closest('.hadith');
     const h = hadithData().find((x) => x.id === card.dataset.hadith);
@@ -200,5 +212,5 @@ reader.addEventListener('input', (e) => {
 function pageHome() {
   return `<input id="discover-search" class="input d-filter d-search" type="search" placeholder="Search stories, hadith, duas, names… e.g. patience, travel, Yusuf" autocomplete="off" />
     <div id="discover-results"></div>
-    <div id="discover-home">${pageHomeBase()}${savedSection()}${storiesHomeSection()}${hadithHomeSection()}</div>`;
+    <div id="discover-home"><div class="d-chips top-chips">${nextChip()}<button class="d-chip pick" data-go="progress"><strong>Reading progress</strong> ${progressData().today}/${state.rp.goal} pages today</button></div>${pageHomeBase()}${toolsHomeSection()}${savedSection()}${storiesHomeSection()}${hadithHomeSection()}</div>`;
 }

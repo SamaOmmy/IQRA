@@ -87,6 +87,7 @@
           <button id="zoom-label" class="zoom-label" title="Reset zoom (Ctrl+0)">100%</button>
           <button id="zoom-in" class="icon-btn" title="Zoom in (Ctrl+=)" aria-label="Zoom in">+</button>
         </div>
+        <button id="btn-hifz" class="btn" title="Memorisation mode: hide the text and reveal it by clicking (H)">Memorise</button>
         <button id="btn-study" class="btn" title="Translation, words and tafsir for the selected verse (T)">Study</button>
       </header>
       <div id="progress"><i></i></div>
@@ -133,6 +134,7 @@
           <button class="tab active" data-study="translation">Translation</button>
           <button class="tab" data-study="words">Words</button>
           <button class="tab" data-study="tafsir">Tafsir</button>
+          <button class="tab" data-study="notes">Notes</button>
         </div>
       </div>
       <div id="study-body"></div>
@@ -191,8 +193,23 @@
     </div>
   </div>
 
+  <div id="share-wrap" hidden>
+    <div class="share-card" role="dialog" aria-label="Share as image">
+      <canvas id="share-canvas" width="1080" height="1350"></canvas>
+      <div class="share-side">
+        <h3>Share as image</h3>
+        <div class="seg" id="share-styles"><button class="seg-btn" data-style="emerald">Emerald</button><button class="seg-btn" data-style="paper">Paper</button><button class="seg-btn" data-style="night">Night</button></div>
+        <button id="share-copy" class="btn primary">Copy image</button>
+        <button id="share-save" class="btn">Save as PNG</button>
+        <button id="share-text" class="btn">Copy as text</button>
+        <button id="share-close" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
   <div id="toast" role="status"></div>
   <script src="util.js"></script>
+  <script src="prayer.js"></script>
+  <script src="share.js"></script>
   <script src="mushaf.js"></script>
   <script src="study.js"></script>
   <script src="audio.js"></script>
@@ -203,6 +220,7 @@
   <script src="stories-sira.js"></script>
   <script src="discover.js"></script>
   <script src="discover-more.js"></script>
+  <script src="features.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

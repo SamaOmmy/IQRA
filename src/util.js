@@ -38,7 +38,8 @@ const defaults = {
   view: 'mushaf', readView: 'mushaf', zoom: 1, spread: true, flipAnim: true, arSize: 30, trSize: 16,
   showTr: true, tr1: 'en.sahih', tr2: '', translit: false, wbw: false,
   reciter: RECITERS[0][0], speed: 1, continuous: true,
-  favs: [], tafsir: Q.tafsirs[0].id, studyOpen: false, studyTab: 'translation', bookmarks: [],
+  favs: [], notes: {}, hifz: false, loc: null, pmethod: 'mwl', hanafi: false, clock24: false,
+  rp: { read: {}, days: {}, goal: 2, khatams: 0 }, tafsir: Q.tafsirs[0].id, studyOpen: false, studyTab: 'translation', bookmarks: [],
 };
 const state = { ...defaults, ...loadState() };
 if (!['mushaf', 'verses', 'discover'].includes(state.view)) state.view = state.view === 'pages' ? 'mushaf' : 'verses'; // names from v1
@@ -46,8 +47,10 @@ if (!Q.translations.some((t) => t.id === state.tr1)) state.tr1 = defaults.tr1;
 if (state.tr2 && !Q.translations.some((t) => t.id === state.tr2)) state.tr2 = '';
 if (!Q.tafsirs.some((t) => t.id === state.tafsir)) state.tafsir = defaults.tafsir;
 if (!RECITERS.some(([id]) => id === state.reciter)) state.reciter = defaults.reciter;
-if (!['translation', 'words', 'tafsir'].includes(state.studyTab)) state.studyTab = 'translation';
+if (!['translation', 'words', 'tafsir', 'notes'].includes(state.studyTab)) state.studyTab = 'translation';
 
+state.notes = state.notes || {};
+state.rp = { read: {}, days: {}, goal: 2, khatams: 0, ...(state.rp || {}) };
 let current = { s: state.surah, a: state.ayah }; // the selected / playing verse
 
 function loadState() {
