@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IQRA</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="polish.css" />
 </head>
 <body>
   <div id="app">
@@ -106,7 +107,7 @@
 
       <footer id="player">
         <div id="p-progress"><i></i></div>
-        <div class="now"><span id="now-playing">Select a verse to listen</span></div>
+        <div class="now"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="now-playing">Select a verse to listen</span></div>
         <div class="controls">
           <button id="p-prev" class="icon-btn" title="Previous verse (P)" aria-label="Previous verse">⏮</button>
           <button id="p-play" class="play" title="Play / pause (Space)" aria-label="Play">▶</button>
@@ -115,6 +116,9 @@
         <div class="opts">
           <select id="speed" class="input select narrow" title="Playback speed">
             <option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option>
+          </select>
+          <select id="sleep" class="input select narrow" title="Sleep timer: stop the audio after a while">
+            <option value="0">Sleep: off</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option>
           </select>
           <select id="reciter" class="input select" title="Reciter"></select>
         </div>
@@ -147,11 +151,10 @@
       <div class="modal-body">
         <section>
           <h4>Appearance</h4>
-          <div class="seg" id="theme-seg">
-            <button class="seg-btn" data-theme="light">Light</button>
-            <button class="seg-btn" data-theme="sepia">Sepia</button>
-            <button class="seg-btn" data-theme="dark">Dark</button>
-          </div>
+          <div class="theme-grid" id="theme-grid"></div>
+          <div class="note">Accent colour</div>
+          <div class="accent-row" id="accent-row"></div>
+          <label class="check"><input id="chk-motion" type="checkbox" /> Animations and transitions</label>
           <div id="font-note" class="note"></div>
         </section>
         <section>
@@ -208,6 +211,7 @@
   </div>
   <div id="toast" role="status"></div>
   <script src="util.js"></script>
+  <script src="themes.js"></script>
   <script src="prayer.js"></script>
   <script src="share.js"></script>
   <script src="mushaf.js"></script>
@@ -218,7 +222,13 @@
   <script src="discover-content.js"></script>
   <script src="stories-quran.js"></script>
   <script src="stories-sira.js"></script>
+  <script src="collections-more.js"></script>
   <script src="stories-more.js"></script>
+  <script src="stories-told.js"></script>
+  <script src="stories-women.js"></script>
+  <script src="stories-scholars.js"></script>
+  <script src="stories-history.js"></script>
+  <script src="stories-moments.js"></script>
   <script src="discover.js"></script>
   <script src="deep-sira-1.js"></script>
   <script src="deep-sira-2.js"></script>
@@ -227,6 +237,10 @@
   <script src="deep-companions.js"></script>
   <script src="discover-more.js"></script>
   <script src="features.js"></script>
+  <script src="motion.js"></script>
+  <script src="guides.js"></script>
+  <script src="surah-guide.js"></script>
+  <script src="tools.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

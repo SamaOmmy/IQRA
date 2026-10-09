@@ -103,6 +103,44 @@ const card = (route, title, ar, sub) => `
   </button>`;
 
 // ---------- Pages ----------
+const ICONS = {
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  beads: '<circle cx="12" cy="4.5" r="1.9"/><circle cx="18" cy="8" r="1.9"/><circle cx="19" cy="14.5" r="1.9"/><circle cx="14.5" cy="19.5" r="1.9"/><circle cx="8" cy="19" r="1.9"/><circle cx="4.5" cy="13.5" r="1.9"/><circle cx="6.5" cy="7" r="1.9"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  book: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z"/><path d="M9 9h6M9 13h6"/>',
+  scroll: '<path d="M3 5.5C5 4.5 8 4.5 12 6.5c4-2 7-2 9-1V19c-2-1-5-1-9 1-4-2-7-2-9-1V5.5Z"/><path d="M12 6.5V20"/>',
+  calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  chart: '<path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/>',
+  quiz: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
+  bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3Z"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/>',
+};
+const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const tile = (route, ic, title, sub) => `<button class="q-tile" data-go="${esc(route)}"><span class="ic">${icon(ic)}</span><b>${esc(title)}</b><small>${esc(sub)}</small></button>`;
+
+function greetingFor(now) {
+  const h = now.getHours();
+  return h < 5 || h >= 21 ? 'Peace be with you tonight' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+function heroSide(friday) {
+  const here = `${surahOf(current.s).en} · verse ${current.a}`;
+  let prayer = `<button class="d-hero-btn" data-go="prayer"><small>Prayer times</small><strong>Set your city</strong><span>Times and Qibla, calculated on your computer</span></button>`;
+  if (state.loc) {
+    const n = nextPrayer(state.loc, { method: state.pmethod, hanafi: state.hanafi });
+    const label = PRAYER_NAMES.find((p) => p[0] === n.key)[1];
+    prayer = `<button class="d-hero-btn" data-go="prayer"><small>Next prayer</small><strong>${label} <span id="next-time">${timeText(n.at, state.loc.tz)}</span></strong><span id="next-count">in ${countdownText(n.at - new Date())}</span></button>`;
+  }
+  return `<div class="d-hero-side">
+    <button class="d-hero-btn" data-continue><small>Continue reading</small><strong>${esc(here)}</strong><span>Open where you left off</span></button>
+    ${prayer}
+    ${friday ? `<button class="d-hero-btn" data-go="collection/friday"><small>Jumu’ah Mubarak</small><span>Read Surah al-Kahf and send blessings upon the Prophet ﷺ</span></button>` : ''}
+  </div>`;
+}
+
 function pageHomeBase() {
   const now = new Date();
   const dn = dayNumber(now);
@@ -125,53 +163,78 @@ function pageHomeBase() {
   ].sort((a, b) => a.days - b.days).slice(0, 5);
 
   const h = hijriOf(now);
+  const evening = now.getHours() >= 15;
   return `
   <section class="d-hero">
     <div>
+      <div class="d-greet">${greetingFor(now)} · السلام عليكم</div>
       <div class="d-hijri-ar">${esc(hijriArabic.format(now))}</div>
       <div class="d-hijri">${h.d} ${HIJRI_MONTHS[h.m - 1]} ${h.y} AH</div>
       <div class="d-greg">${esc(now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</div>
     </div>
-    ${friday ? `<button class="d-friday" data-go="collection/friday"><strong>Jumu’ah Mubarak</strong><span>Read Surah al-Kahf and send blessings upon the Prophet ﷺ</span></button>` : ''}
+    ${heroSide(friday)}
   </section>
+
+  <nav class="d-jump" aria-label="Sections">
+    ${[['today', 'Today'], ['adhkar', 'Adhkar and duas'], ['stories', 'Stories'], ['hadith', 'Hadith'], ['learn', 'Learn']].map(([id, n]) => `<button class="d-chip pick" data-jump="sec-${id}">${n}</button>`).join('')}
+  </nav>
+
+  <div class="quick">
+    ${tile('prayer', 'clock', 'Prayer times', state.loc ? state.loc.name : 'Times and Qibla')}
+    ${tile('salah', 'check', 'Salah tracker', 'Tick off today’s prayers')}
+    ${tile('tasbih', 'beads', 'Tasbih', 'A counter for dhikr')}
+    ${tile(evening ? 'azkar/evening' : 'azkar/morning', evening ? 'moon' : 'sun', evening ? 'Evening adhkar' : 'Morning adhkar', 'With repeat counters')}
+    ${tile('hadith', 'book', 'Hadith library', `${hadithData().length} hadith by theme`)}
+    ${tile('shelf/sira', 'scroll', 'The Sira', 'The Prophet’s life, in order')}
+    ${tile('calendar', 'calendar', 'Hijri calendar', 'Dates and occasions')}
+    ${tile('progress', 'chart', 'Reading progress', 'Goal, streak and khatam')}
+    ${tile('quiz', 'quiz', 'Quiz', 'Test what you know')}
+    ${tile('learn', 'bulb', 'Guides', 'Wudu, prayer, Hajj and more')}
+  </div>
 
   ${chips.length ? `<div class="d-chips">${chips.map((o) => `<span class="d-chip"><strong>${esc(o.name)}</strong> ${daysLabel(o.days)}</span>`).join('')}</div>` : ''}
 
-  <section class="d-today">
-    <div class="d-card feature">
-      <div class="d-label">Verse of the day</div>
-      ${verseBlock(verse)}
+  <section class="d-today" id="sec-today">
+    <div class="d-col">
+      <div class="d-card feature">
+        <div class="d-label">Verse of the day</div>
+        ${verseBlock(verse)}
+      </div>
+      <button class="d-card nav d-name-card" data-go="names">
+        <div class="d-label">Name of Allah today</div>
+        <span class="d-name-ar">${esc(nameOfDay[0])}</span>
+        <span class="d-card-title">${esc(nameOfDay[1])}</span>
+        <span class="d-card-sub">${esc(nameOfDay[2])}</span>
+      </button>
     </div>
-    <div class="d-card">
-      <div class="d-label">Dua of the day</div>
-      ${duaBlock({ ...pick.it, title: hisnData()[pick.ch].en, key: '' })}
-    </div>
-    <div class="d-card">
-      <div class="d-label">Hadith of the day</div>
-      <h3 class="d-h3">${esc(hadithMeta.t)}</h3>
-      <p class="d-p">${esc(hadithMeta.s)}</p>
-      <p class="src">${esc(hadithMeta.src)}</p>
-      <button class="dbtn" data-go="nawawi">Read all forty</button>
+    <div class="d-col">
+      <div class="d-card">
+        <div class="d-label">Dua of the day</div>
+        ${duaBlock({ ...pick.it, title: hisnData()[pick.ch].en, key: '' })}
+      </div>
+      <div class="d-card">
+        <div class="d-label">Hadith of the day</div>
+        <h3 class="d-h3">${esc(hadithMeta.t)}</h3>
+        <p class="d-p">${esc(hadithMeta.s)}</p>
+        <p class="src">${esc(hadithMeta.src)}</p>
+        <button class="dbtn" data-go="nawawi">Read all forty</button>
+      </div>
     </div>
   </section>
 
-  <h2 class="d-h2">Collections from the Qur’an and Sunnah</h2>
-  <div class="d-grid">${DISCOVER.collections.map((c) => card(`collection/${c.id}`, c.title, c.ar, c.blurb)).join('')}</div>
-
-  <h2 class="d-h2">Duas for every moment</h2>
+  <div id="sec-adhkar"></div>
+  <div class="sec-head"><h2 class="d-h2">Adhkar and duas</h2></div>
   <div class="d-grid">
     ${card('azkar/morning', 'Morning adhkar', 'أذكار الصباح', 'With a counter for each repetition')}
     ${card('azkar/evening', 'Evening adhkar', 'أذكار المساء', 'With a counter for each repetition')}
+    ${card('daily/prayer', 'After the prayer', 'أذكار بعد الصلاة', 'Tasbih, tahmid and takbir with counters')}
+    ${card('daily/sleep', 'Before you sleep', 'أذكار النوم', 'The Prophet’s routine for bedtime')}
     ${DISCOVER.moments.map((m) => card(`moment/${m.id}`, m.title, m.ar, `${m.hisn.length} chapters`)).join('')}
+    ${card('hisn-all', 'Hisn al-Muslim', 'حصن المسلم', 'All 132 chapters, searchable')}
   </div>
 
-  <h2 class="d-h2">Learn and reflect</h2>
-  <div class="d-grid">
-    ${card('nawawi', 'The Forty Hadith', 'الأربعون النووية', 'Imam an-Nawawi, with the Arabic and a plain summary')}
-    ${card('names', 'The 99 Names of Allah', 'أسماء الله الحسنى', `Name of the day: ${nameOfDay[1]}`)}
-    ${card('fasting', 'Sunnah fasting', 'صيام التطوع', 'Days when fasting is recommended')}
-    ${card('hisn-all', 'Hisn al-Muslim', 'حصن المسلم', 'All 132 chapters, searchable')}
-  </div>`;
+  <h2 class="d-h2">Collections from the Qur’an and Sunnah</h2>
+  <div class="d-grid">${DISCOVER.collections.map((c) => card(`collection/${c.id}`, c.title, c.ar, c.blurb)).join('')}</div>`;
 }
 
 function pageCollection(id) {
@@ -299,6 +362,9 @@ reader.addEventListener('click', (e) => {
   const go = e.target.closest('[data-go]');
   if (go) { discoverGo(go.dataset.go, { replace: 'replace' in go.dataset }); return; }
   if (e.target.closest('[data-back]')) { discoverBack(); return; }
+  if (e.target.closest('[data-continue]')) { openInReader(current.s, current.a); return; }
+  const jump = e.target.closest('[data-jump]');
+  if (jump) { const t = document.getElementById(jump.dataset.jump); if (t) t.scrollIntoView({ behavior: state.motion === false ? 'auto' : 'smooth', block: 'start' }); return; }
 
   const counter = e.target.closest('[data-count]');
   if (counter) {
@@ -307,6 +373,8 @@ reader.addEventListener('click', (e) => {
     adhkarCounts.set(key, n);
     counter.textContent = n >= max ? '✓ Done' : `${n} / ${max}`;
     counter.classList.toggle('done', n >= max);
+    pop(counter);
+    if (n >= max) sparkle(counter);
     return;
   }
 

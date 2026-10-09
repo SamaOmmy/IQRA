@@ -32,6 +32,7 @@ function renderVerses() {
       <div class="v-title">سورة ${esc(s.ar)}</div>
       <div class="v-meta">${s.n}. ${esc(s.en)} · ${esc(s.meaning)} · ${s.type === 'Meccan' ? 'Meccan' : 'Medinan'} · ${s.ayahs.length} verses</div>
     </header>
+    ${SURAH_INTROS[s.n] ? `<details class="surah-about"><summary>About this surah</summary><p>${esc(SURAH_INTROS[s.n])}</p></details>` : ''}
     ${showBismillah ? `<div class="v-bism">${esc(Q.bismillah)}</div>` : ''}`;
 
   const body = s.ayahs.map((a) => `
@@ -230,13 +231,15 @@ function zoomReset() {
 // ---------- Preferences ----------
 function applyPrefs() {
   const root = document.documentElement;
-  root.dataset.theme = state.theme;
+  applyTheme();
   root.style.setProperty('--ar-size', `${state.arSize}px`);
   root.style.setProperty('--tr-size', `${state.trSize}px`);
   $('#view-mushaf').classList.toggle('active', state.view === 'mushaf');
   $('#view-verses').classList.toggle('active', state.view === 'verses');
   $('#view-discover').classList.toggle('active', state.view === 'discover');
   $('.zoom').hidden = state.view === 'discover';
+  $('#btn-hifz').hidden = state.view === 'discover';
+  $('#btn-study').hidden = state.view === 'discover';
   $('#flip-prev').hidden = state.view !== 'mushaf';
   $('#flip-next').hidden = state.view !== 'mushaf';
   stage.classList.toggle('is-mushaf', state.view === 'mushaf');
@@ -250,7 +253,6 @@ function applyPrefs() {
   $('#p-continuous').checked = state.continuous;
   $('#speed').value = String(state.speed);
   $('#reciter').value = state.reciter;
-  $$('#theme-seg .seg-btn').forEach((b) => b.classList.toggle('active', b.dataset.theme === state.theme));
   $('#btn-study').classList.toggle('on', state.studyOpen);
   $('#btn-hifz').classList.toggle('on', state.hifz);
   stage.classList.toggle('hifz', state.hifz);
@@ -284,10 +286,6 @@ $('#chk-spread').addEventListener('change', (e) => { state.spread = e.target.che
 $('#chk-showtr').addEventListener('change', (e) => { state.showTr = e.target.checked; save(); if (state.view === 'verses') rerenderView(); });
 $('#chk-translit').addEventListener('change', (e) => { state.translit = e.target.checked; save(); if (state.view === 'verses') rerenderView(); });
 $('#chk-wbw').addEventListener('change', (e) => { state.wbw = e.target.checked; save(); if (state.view === 'verses') rerenderView(); });
-$('#theme-seg').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-theme]');
-  if (b) { state.theme = b.dataset.theme; save(); applyPrefs(); }
-});
 
 // ---------- Events ----------
 reader.addEventListener('click', (e) => {

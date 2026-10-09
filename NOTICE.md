@@ -27,9 +27,9 @@ Which editions are bundled is listed in `scripts/data-config.js`.
 | Duas and adhkar (Hisn al-Muslim, 132 chapters) | [Islamic-Pro-azkar-API](https://github.com/YousefAsalya/Islamic-Pro-azkar-API) (MIT), from *Hisn al-Muslim* by Sa’id al-Qahtani | Arabic and English text as published in that dataset. |
 | Morning and evening adhkar, with transliteration, counts and sources | [Morning-And-Evening-Adhkar-DB](https://github.com/Seen-Arabic/Morning-And-Evening-Adhkar-DB) (MIT) | |
 | Arabic text of the Forty Hadith of an-Nawawi | [hadith-api](https://github.com/fawazahmed0/hadith-api) (Unlicense; classical Arabic text) | |
-| Classical Arabic text of 73 hadith (Hadith library) | [hadith-api](https://github.com/fawazahmed0/hadith-api) (Unlicense), from the Arabic texts of Bukhari, Muslim, at-Tirmidhi and others | Checked against the source at build time; English summaries are written for IQRA. |
+| Classical Arabic text of 100 hadith (Hadith library) | [hadith-api](https://github.com/fawazahmed0/hadith-api) (Unlicense), from the Arabic texts of Bukhari, Muslim, at-Tirmidhi and others | Checked against the source at build time; English summaries are written for IQRA. |
 | Prayer times and Qibla | Calculated on the device from the sun’s position (standard twilight-angle methods: MWL, ISNA, Egyptian, Umm al-Qura, Karachi) | No data is downloaded or sent. Times are an aid; check your local mosque for official times. |
-| Collections, hadith summaries, in-depth stories of the prophets, the Sira and the Companions, the 99 Names, calendar occasions, Sunnah fasting days | Written for IQRA (MIT) | The English summaries are not taken from a published translation. Each reported practice names the collection it comes from. This content is for reference and learning; please verify rulings with a qualified scholar. |
+| Collections, hadith summaries, in-depth stories (prophets, the Sira, the Companions, women of faith, scholars, history, stories the Prophet ﷺ told), guides, the surah introductions, the 99 Names, calendar occasions, Sunnah fasting days | Written for IQRA (MIT) | The English summaries are not taken from a published translation. Each reported practice names the collection it comes from. This content is for reference and learning; please verify rulings with a qualified scholar. |
 
 ## Credits
 

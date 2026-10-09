@@ -28,13 +28,12 @@ const RECITERS = [
   ['Nasser_Alqatami_128kbps', 'Nasser Al-Qatami'],
   ['Salah_Al_Budair_128kbps', 'Salah Al-Budair'],
 ];
-const THEMES = ['light', 'sepia', 'dark'];
 const RTL_LANGS = new Set(['ar', 'fa', 'ur', 'ps', 'sd', 'ug', 'dv', 'ku']);
 const STORE_KEY = 'iqra-state';
 
 // ---------- State ----------
 const defaults = {
-  surah: 1, ayah: 1, page: 1, theme: 'light',
+  surah: 1, ayah: 1, page: 1, theme: 'light', accent: '', motion: true,
   view: 'mushaf', readView: 'mushaf', zoom: 1, spread: true, flipAnim: true, arSize: 30, trSize: 16,
   showTr: true, tr1: 'en.sahih', tr2: '', translit: false, wbw: false,
   reciter: RECITERS[0][0], speed: 1, continuous: true,

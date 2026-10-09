@@ -13,7 +13,8 @@ The builds are not code-signed, so Windows SmartScreen may warn you: click **Mor
 
 - **Mushaf view**: the 604-page Madani mushaf (the classic 1405H print), laid out like the printed book: 15 lines per page, surah banners, verse markers, white paper. The pages fill your window, and two pages show side by side like an open book when there is room. Pages turn with a page-turn animation (← / → or the edge buttons); zoom with Ctrl + wheel.
 - **Verses view**: verse by verse with translation, transliteration and word-by-word meanings.
-- **Discover**: 95 stories, each with a full in-depth account (prophets, Qur'anic tales, the Sira in order, the Companions, teachings from real moments), a Hadith library of 73 hadith with the Arabic and a summary, search across it all, today's Hijri date and upcoming occasions; a verse, dua and hadith of the day; collections from the Qur'an and Sunnah (duas of the prophets, protection, Friday, Ramadan, Eid, Hajj, patience, forgiveness, family); duas for every moment from Hisn al-Muslim; morning and evening adhkar with repeat counters; the Forty Hadith; the 99 Names of Allah; Sunnah fasting days.
+- **Discover**: 132 stories, each with a full in-depth account (the prophets, Qur'anic tales, the Sira in order, the Companions, women of faith, scholars, moments in history, stories the Prophet ﷺ told, and teachings from real moments); a Hadith library of 100 hadith with the Arabic and a summary, in 12 themes; 21 collections of verses and duas; a short introduction to every surah; step-by-step guides (wudu, the prayer, Friday, fasting, Eid, Umrah, Hajj, the funeral prayer); duas for every moment from Hisn al-Muslim; morning and evening adhkar with repeat counters; the Forty Hadith; the 99 Names; search across it all.
+- **Tools**: a tasbih counter, a Hijri calendar with occasions and a date converter, a salah tracker with a weekly view and streak, a quiz (names, surahs, stories, basics), a zakat calculator, an audio sleep timer, and optional notifications at prayer times.
 - **Prayer times and Qibla**: set your city (or search 115 built-in cities) for today's five prayer times with a live countdown, several calculation methods, Hanafi Asr option, and a Qibla compass bearing. Calculated on your computer; nothing is sent anywhere.
 - **Reading progress**: tracks the pages you actually read, a daily streak, a daily page goal, and your khatams.
 - **Memorisation mode** (press `H` or the Memorise button): hides the text so you can recite from memory, then tap to reveal.
@@ -24,7 +25,7 @@ The builds are not code-signed, so Windows SmartScreen may warn you: click **Mor
 - Tafsir: Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar, Al-Muyassar, As-Sa'di.
 - Audio from 21 reciters with playback speed; every verse you hear is cached, and the Offline panel downloads whole surahs.
 - Search the Arabic (diacritics ignored) or the selected translation; saved verses; reopens where you left off.
-- Light, Sepia and Dark themes.
+- Ten colour themes (Auto, Light, Sepia, Rose, Ocean, Lavender, Dark, Midnight, Forest, Black), ten accent colours, and gentle animations that can be switched off in Settings.
 
 ## Shortcuts
 
@@ -40,6 +41,7 @@ The builds are not code-signed, so Windows SmartScreen may warn you: click **Mor
 | Ctrl+F | Search |
 | Ctrl+L | Library (surahs and juz) |
 | Ctrl + / Ctrl - / Ctrl+0 | Zoom in / out / reset |
+| ? | Show the keyboard shortcuts |
 | Esc | Close the open panel |
 
 Click a verse to select it, double-click to play it.

@@ -155,6 +155,8 @@ function pagePrayer() {
     <label>Method <select id="p-method" class="input">${Object.entries(PRAYER_METHODS).map(([k, v]) => `<option value="${k}"${k === state.pmethod ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select></label>
     <label>Asr <select id="p-asr" class="input"><option value="0"${state.hanafi ? '' : ' selected'}>Standard (Shafi’i, Maliki, Hanbali)</option><option value="1"${state.hanafi ? ' selected' : ''}>Hanafi</option></select></label>
     <label>Clock <select id="p-clock" class="input"><option value="0"${state.clock24 ? '' : ' selected'}>12-hour</option><option value="1"${state.clock24 ? ' selected' : ''}>24-hour</option></select></label>
+    <label class="check"><input type="checkbox" id="p-notify"${state.pnotify ? ' checked' : ''} /> Notify me at prayer times (while IQRA is open)</label>
+    <button class="dbtn" data-go="salah">Salah tracker</button>
   </div>`;
   if (!p) return `${header('Prayer times', 'مواقيت الصلاة', 'Computed on your computer from the position of the sun. Estimates: confirm with your local mosque.')}${locBlock}${settings}`;
 

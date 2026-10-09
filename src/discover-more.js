@@ -7,7 +7,7 @@ const HADITH_THEMES = [
   ['manners', 'Character and manners'], ['mercy', 'Mercy and family'], ['faith', 'Faith and trust in Allah'],
   ['worship', 'Worship and remembrance'], ['knowledge', 'Knowledge and ongoing good'], ['charity', 'Charity and generosity'],
   ['dua', 'Dua and dhikr'], ['family', 'Parents and family'], ['brotherhood', 'Brotherhood and community'],
-  ['trade', 'Work and honest dealing'], ['hardship', 'Hardship and the Hereafter'],
+  ['trade', 'Work and honest dealing'], ['hardship', 'Hardship and the Hereafter'], ['quran', 'The Qur’an'],
 ];
 
 const isFav = (key) => state.favs.includes(key);
@@ -134,6 +134,9 @@ function discoverSearch(raw) {
   DISCOVER.nawawi.forEach((m, i) => { if (m && (has(m.t) || has(m.s))) add('nawawi', 'Forty Hadith', `${i}. ${m.t}`, clip(m.s)); });
   hisnData().forEach((c, i) => { if (has(c.en) || has(c.ar) || c.items.some((it) => has(it.en) || has(it.ar))) add(`hisn/${i}`, 'Duas (Hisn al-Muslim)', c.en, `${c.items.length} dua${c.items.length > 1 ? 's' : ''}`); });
   DISCOVER.names.forEach(([ar, tl, en]) => { if (has(tl) || has(en) || has(ar)) add('names', 'Names of Allah', tl, en); });
+  if (typeof GUIDES !== 'undefined') for (const g of GUIDES) if (has(g.title) || has(g.ar) || has(g.blurb) || g.steps.some((s) => has(s.h) || s.t.some(has))) add(`guide/${g.id}`, 'Guide', g.title, clip(g.blurb));
+  for (const c of DISCOVER.collections) if (has(c.title) || has(c.ar) || has(c.blurb)) add(`collection/${c.id}`, 'Collection', c.title, clip(c.blurb));
+  if (typeof SURAH_INTROS !== 'undefined') for (const s of Q.surahs) if (has(s.en) || has(s.ar) || has(s.meaning) || has(SURAH_INTROS[s.n] || '')) add('surahs', 'Surah', `${s.n}. ${s.en}`, clip(SURAH_INTROS[s.n] || s.meaning));
   if (!hits.length) return '<p class="empty">Nothing found. Try a name, a place or a topic, such as patience, travel, Yusuf or Badr.</p>';
   return `<div class="d-rows search-results">${hits.slice(0, 40).map((h) => `<button class="d-row" data-go="${esc(h.route)}"><span class="sr-main"><strong>${esc(h.title)}</strong><span class="sr-snip">${esc(h.snippet)}</span></span><span class="d-row-n">${esc(h.kind)}</span></button>`).join('')}</div>${hits.length > 40 ? '<p class="empty">Showing the first 40 results.</p>' : ''}`;
 }
@@ -154,9 +157,10 @@ function savedSection() {
 function storiesHomeSection() {
   const featured = DISCOVER.stories[dayNumber() % DISCOVER.stories.length];
   return `
-  <h2 class="d-h2">Stories and the Sira</h2>
+  <div id="sec-stories"></div>
+  <div class="sec-head"><h2 class="d-h2">Stories and the Sira</h2><button class="see-all" data-go="shelf/sira">Start the Sira ›</button></div>
   <div class="story-feature">
-    <div class="d-label">Story of the day</div>
+    <div class="d-label">Story of the day · ${readingMinutes(featured)} min read</div>
     <h3 class="d-h3">${esc(featured.title)}</h3>
     <p class="d-p">${esc(featured.p[0])}</p>
     <button class="dbtn" data-go="story/${esc(featured.id)}">Read the story</button>
@@ -166,24 +170,32 @@ function storiesHomeSection() {
   </div>`;
 }
 
-function toolsHomeSection() {
-  return `<h2 class="d-h2">Your daily tools</h2>
-    <div class="d-grid">
-      ${card('prayer', 'Prayer times and qibla', 'مواقيت الصلاة', state.loc ? `${state.loc.name}` : 'Choose your city')}
-      ${card('progress', 'Reading progress', 'ورد القراءة', 'Daily goal, streak and your khatam')}
-    </div>`;
+function hadithHomeSection() {
+  const themes = HADITH_THEMES.map(([id, name]) => `<button class="d-chip pick" data-go="hadith/${id}">${esc(name)}</button>`).join('');
+  return `
+  <div id="sec-hadith"></div>
+  <div class="sec-head"><h2 class="d-h2">Hadith</h2><button class="see-all" data-go="hadith">Open the library ›</button></div>
+  <div class="d-chips">${themes}</div>
+  <div class="d-grid">
+    ${card('hadith', 'Hadith library', 'الأحاديث النبوية', `${hadithData().length} hadith with the Arabic, by theme`)}
+    ${card('nawawi', 'The Forty Hadith', 'الأربعون النووية', 'Imam an-Nawawi, with a plain summary')}
+  </div>`;
 }
 
-function hadithHomeSection() {
-  return `<h2 class="d-h2">Hadith</h2>
-    <div class="d-grid">
-      ${card('hadith', 'Hadith library', 'الأحاديث النبوية', `${hadithData().length} hadith with the Arabic, by theme`)}
-      ${card('nawawi', 'The Forty Hadith', 'الأربعون النووية', 'Imam an-Nawawi, with a plain summary')}
-      ${card('azkar/morning', 'Morning adhkar', 'أذكار الصباح', 'With a counter for each repetition')}
-      ${card('azkar/evening', 'Evening adhkar', 'أذكار المساء', 'With a counter for each repetition')}
-      ${card('daily/prayer', 'After the prayer', 'أذكار بعد الصلاة', 'Tasbih, tahmid and takbir with counters')}
-      ${card('daily/sleep', 'Before you sleep', 'أذكار النوم', 'The Prophet’s routine for bedtime')}
-    </div>`;
+function learnHomeSection() {
+  return `
+  <div id="sec-learn"></div>
+  <div class="sec-head"><h2 class="d-h2">Learn and reflect</h2></div>
+  <div class="d-grid">
+    ${card('learn', 'Guides', 'أدلة مبسطة', 'Wudu, the prayer, fasting, Hajj and Umrah, step by step')}
+    ${card('surahs', 'About each surah', 'تعريف بالسور', 'A short introduction to all 114 surahs')}
+    ${card('names', 'The 99 Names of Allah', 'أسماء الله الحسنى', 'With meanings, and a quiz to learn them')}
+    ${card('quiz', 'Quiz', 'اختبر نفسك', 'Names, surahs, stories and the Sira')}
+    ${card('fasting', 'Sunnah fasting', 'صيام التطوع', 'Days when fasting is recommended')}
+    ${card('zakat', 'Zakat calculator', 'حاسبة الزكاة', 'Work out the zakat due on your savings')}
+    ${card('calendar', 'Hijri calendar', 'التقويم الهجري', 'Dates, occasions and Fridays by month')}
+    ${card('salah', 'Salah tracker', 'متابعة الصلاة', 'A week of prayers at a glance')}
+  </div>`;
 }
 
 Object.assign(PAGES, {
@@ -227,9 +239,9 @@ reader.addEventListener('input', (e) => {
   $('#discover-home').hidden = !!html;
 });
 
-// The home page: search box, then the original sections, then stories, hadith and saved items.
+// The home page: search box, then today, adhkar, stories, hadith, learning and saved items.
 function pageHome() {
   return `<input id="discover-search" class="input d-filter d-search" type="search" placeholder="Search stories, hadith, duas, names… e.g. patience, travel, Yusuf" autocomplete="off" />
     <div id="discover-results"></div>
-    <div id="discover-home"><div class="d-chips top-chips">${nextChip()}<button class="d-chip pick" data-go="progress"><strong>Reading progress</strong> ${progressData().today}/${state.rp.goal} pages today</button></div>${pageHomeBase()}${toolsHomeSection()}${savedSection()}${storiesHomeSection()}${hadithHomeSection()}</div>`;
+    <div id="discover-home">${pageHomeBase()}${savedSection()}${storiesHomeSection()}${hadithHomeSection()}${learnHomeSection()}</div>`;
 }
