@@ -1,24 +1,24 @@
-node_modules/
-dist/
-*.log
-
-# Raw downloads; regenerate with `npm run fetch-data`
+# Raw downloads; regenerate with `node scripts/fetch-data.js`
 data/raw/
 
-# Authentic mushaf fonts and glyph data (King Fahd Complex / Quran Foundation terms: not to be offered separately)
-src/fonts/mushaf/
+# Authentic Madani mushaf fonts and glyph data (King Fahd Complex / Quran Foundation terms: not to be offered separately)
 data/qcf/
-
-dist-public/
-
-# scratch files
-*.tmp.*
-.scratch/
-
-# Flutter app: authentic mushaf fonts and glyph data (same licence rule as above)
 iqra_app/assets/fonts/mushaf/*
 !iqra_app/assets/fonts/mushaf/.gitkeep
 iqra_app/assets/qcf/*
 !iqra_app/assets/qcf/.gitkeep
+
+# Build output
 iqra_app/dist-public/
 iqra_app/dist-local/
+
+# scratch files
+*.log
+*.tmp.*
+.scratch/
+
+# Leftovers of the removed Electron app on this machine (never commit)
+node_modules/
+dist/
+dist-public/
+src/

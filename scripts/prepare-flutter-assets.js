@@ -9,7 +9,7 @@
 //   assets/qcf/qcf.json         [604][glyphs]  (licensed glyph data: git-ignored, absent from public builds)
 //
 // Other translations and the tafsirs are not bundled; the app downloads them on demand from this repository and caches them.
-// content.json (stories, guides...) comes from scripts/export-content.js.
+// content.json (stories, guides, collections, surah introductions) is maintained directly in iqra_app/assets/data/.
 const fs = require('fs');
 const path = require('path');
 
