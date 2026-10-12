@@ -2,94 +2,65 @@
 
 <p align="center"><img src="build/icon.png" width="96" alt="IQRA logo" /></p>
 
-**IQRA** (اقرأ, "Read") is a free, open-source Qur'an reader for Windows, built with Electron. Everything except audio streaming works offline.
+**IQRA** (اقرأ, "Read") is a free, open-source Qur'an app for **Windows and Android**, built with Flutter. The Qur'an, the stories and the tools all work offline; only audio and extra translations are downloaded the first time you use them.
 
 ## Download
 
-Grab the installer or the portable .exe from the [latest release](https://github.com/SamaOmmy/IQRA/releases/latest) (Windows 10/11, 64-bit).
+Get the latest build from the [releases page](https://github.com/SamaOmmy/IQRA/releases/latest):
+
+- **Windows 10/11**: `IQRA-Setup-x.y.z.exe` (installs for your user, no admin needed) or `IQRA-x.y.z-windows-portable.zip`.
+- **Android**: `IQRA-x.y.z-arm64-v8a-release.apk` for almost every phone made in the last several years (use `armeabi-v7a` for older 32-bit phones). Allow "install from this source" when asked.
+
 The builds are not code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
 
 ## What it does
 
-- **Mushaf view**: the 604-page Madani mushaf (the classic 1405H print), laid out like the printed book: 15 lines per page, surah banners, verse markers, white paper. The pages fill your window, and two pages show side by side like an open book when there is room. Pages turn with a page-turn animation (← / → or the edge buttons); zoom with Ctrl + wheel.
-- **Verses view**: verse by verse with translation, transliteration and word-by-word meanings.
-- **Discover**: 132 stories, each with a full in-depth account (the prophets, Qur'anic tales, the Sira in order, the Companions, women of faith, scholars, moments in history, stories the Prophet ﷺ told, and teachings from real moments); a Hadith library of 100 hadith with the Arabic and a summary, in 12 themes; 21 collections of verses and duas; a short introduction to every surah; step-by-step guides (wudu, the prayer, Friday, fasting, Eid, Umrah, Hajj, the funeral prayer); duas for every moment from Hisn al-Muslim; morning and evening adhkar with repeat counters; the Forty Hadith; the 99 Names; search across it all.
-- **Tools**: a tasbih counter, a Hijri calendar with occasions and a date converter, a salah tracker with a weekly view and streak, a quiz (names, surahs, stories, basics), a zakat calculator, an audio sleep timer, and optional notifications at prayer times.
-- **Prayer times and Qibla**: set your city (or search 115 built-in cities) for today's five prayer times with a live countdown, several calculation methods, Hanafi Asr option, and a Qibla compass bearing. Calculated on your computer; nothing is sent anywhere.
-- **Reading progress**: tracks the pages you actually read, a daily streak, a daily page goal, and your khatams.
-- **Memorisation mode** (press `H` or the Memorise button): hides the text so you can recite from memory, then tap to reveal.
-- **Verse notes** (Study panel) and **Share as image**: turn any verse or hadith into a clean card to copy or save.
-- **Study panel** (press `T`): translation, word-by-word and tafsir for the selected verse, beside the page.
-- **Jump anywhere** with `Ctrl+K`: a surah name, `2:255`, `page 300`, `juz 20`, or a word to search for.
-- 62 translations in 40+ languages, with an optional second translation shown side by side.
-- Tafsir: Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar, Al-Muyassar, As-Sa'di.
-- Audio from 21 reciters with playback speed; every verse you hear is cached, and the Offline panel downloads whole surahs.
-- Search the Arabic (diacritics ignored) or the selected translation; saved verses; reopens where you left off.
-- Ten colour themes (Auto, Light, Sepia, Rose, Ocean, Lavender, Dark, Midnight, Forest, Black), ten accent colours, and gentle animations that can be switched off in Settings.
+- **Read**: the 604-page Madani mushaf laid out like the printed book (15 lines per page, surah banners, verse markers), a two-page spread on wide screens, and a verse-by-verse view with translation, word-by-word meanings, tafsir and your own notes. Memorisation mode hides the text until you tap it.
+- **Listen**: verse-by-verse recitation from 21 reciters, with speed, repeat-each-verse and a sleep timer, and a Now Playing screen that follows along verse by verse. Verses you hear are kept for offline use.
+- **Discover**: 132 in-depth stories (the prophets, Qur'anic tales, the Sira in order, the Companions, women of faith, scholars, moments in history), a library of 100 hadith, 21 collections of verses and duas, an introduction to every surah, step-by-step guides (wudu, prayer, Friday, fasting, Eid, Umrah, Hajj, the funeral prayer), Hisn al-Muslim, morning and evening adhkar with counters, the Forty Hadith and the 99 Names.
+- **Tools**: prayer times and qibla (calculated on your device), tasbih, a Hijri calendar with a date converter, a salah tracker, a quiz and a zakat calculator.
+- **Library**: bookmarks, notes, memorised verses, reading streak and khatam progress.
+- **Search** across verses (Arabic with diacritics ignored, or any translation), surahs, stories, hadith and duas.
+- 62 translations in 40+ languages and six tafsirs; nine colour themes, ten accent colours and gentle animations you can switch off.
 
-## Shortcuts
+## Keyboard shortcuts (Windows)
 
 | Key | Action |
 | --- | --- |
-| Ctrl+K | Jump to a surah, verse, page or juz |
-| ← / → | Next / previous page (the book turns right to left) |
 | Space | Play / pause |
-| N / P | Next / previous verse |
-| B | Save the selected verse |
-| H | Memorisation mode (hide / show the text) |
-| T | Open / close the study panel |
-| Ctrl+F | Search |
-| Ctrl+L | Library (surahs and juz) |
-| Ctrl + / Ctrl - / Ctrl+0 | Zoom in / out / reset |
-| ? | Show the keyboard shortcuts |
-| Esc | Close the open panel |
+| ← / → | Turn the mushaf page (the book turns right to left) |
+| / | Search |
+| Media keys | Play / pause, next and previous verse |
 
-Click a verse to select it, double-click to play it.
+## Build from source
 
-## Run from source
+You need the [Flutter SDK](https://docs.flutter.dev/get-started/install) (with Visual Studio's *Desktop development with C++* workload for Windows, and the Android SDK for Android).
 
-    npm install
-    npm start
+    cd iqra_app
+    flutter pub get
+    flutter run -d windows
 
-## The Madani mushaf script (optional fonts)
+The app bundles generated data from `data/`. Rebuild the bundle with:
 
-IQRA always works with the open-licensed Scheherazade New font. For the authentic look of the printed Madani mushaf
-(the King Fahd Glorious Qur'an Printing Complex script), download the fonts once:
+    node scripts/prepare-flutter-assets.js
 
-    npm run fetch-fonts
+### The Madani mushaf script (optional fonts)
 
-The fonts are never committed to this repository: their terms allow bundling them inside an application but not
-offering them separately. See [NOTICE.md](NOTICE.md) before you publish a build that includes them.
+Without extra files IQRA draws the mushaf in the open-licensed Old Madina font. For the authentic King Fahd Complex script, the per-page fonts and glyph data are needed; they are **not** in this repository (see [NOTICE.md](NOTICE.md)). Builds you make for yourself can include them; the public release builds do not.
 
-## Build a Windows installer
+### Release builds
 
-    npm run dist     # installer + portable .exe in dist/
-    npm run pack     # unpacked app folder only (faster, for testing)
+    scripts\build-flutter.ps1            # public build: no licensed fonts
+    scripts\build-flutter.ps1 -Local     # personal build with the authentic fonts (never publish it)
 
-## Updates
-
-The installed app checks GitHub Releases in the background, downloads a newer version, and offers a one-click restart
-(Settings, then *Check for updates*, also works). The portable build cannot replace itself, so it only tells you when a newer
-release exists and links to it.
-
-### Publishing a release (maintainers)
-
-1. Bump `version` in `package.json`.
-2. `npm run dist` (run `npm run fetch-fonts` first if the build should include the Madani mushaf script).
-3. Create a GitHub release tagged `vX.Y.Z` and upload from `dist/`: `IQRA-Setup-X.Y.Z.exe`, its `.blockmap`, **`latest.yml`**, and `IQRA-X.Y.Z-portable.exe`.
-   Installed apps update from `latest.yml`, so it must be attached.
+The output (Windows installer and portable zip, Android APKs) is written to `iqra_app\dist-public` or `iqra_app\dist-local`.
 
 ## Data
 
-The app reads generated files from `data/`. They are built from public sources by two scripts; the raw downloads live in `data/raw/` (git-ignored):
+`data/` holds the compacted Qur'an text, page layout, word-by-word data, translations, tafsir and Discover data. They are built from public sources by `scripts/fetch-data.js` and `scripts/build-data.js` (raw downloads live in `data/raw/`, git-ignored). The stories, guides, collections and surah introductions are stored in `iqra_app/assets/data/content.json`.
 
-    npm run fetch-data   # alquran.cloud (text, translations), quran.com API (words, page layout), spa5k/tafsir_api (tafsir)
-    npm run build-data   # compacts them into data/
-
-Which translations and tafsirs are bundled is listed in `scripts/data-config.js`.
-Audio comes from everyayah.com and is cached in the app's user-data folder (Offline panel, then *Open folder*).
+Translations and tafsirs other than the default are downloaded from this repository the first time you pick one, then kept on the device.
 
 ## License
 
-The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir and fonts are
-third-party content under their own terms; see [NOTICE.md](NOTICE.md) for sources and attribution.
+The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir and fonts are third-party content under their own terms; see [NOTICE.md](NOTICE.md) for sources and attribution.

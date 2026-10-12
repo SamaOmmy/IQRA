@@ -14,3 +14,11 @@ dist-public/
 # scratch files
 *.tmp.*
 .scratch/
+
+# Flutter app: authentic mushaf fonts and glyph data (same licence rule as above)
+iqra_app/assets/fonts/mushaf/*
+!iqra_app/assets/fonts/mushaf/.gitkeep
+iqra_app/assets/qcf/*
+!iqra_app/assets/qcf/.gitkeep
+iqra_app/dist-public/
+iqra_app/dist-local/

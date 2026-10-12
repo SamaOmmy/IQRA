@@ -1,6 +1,6 @@
 # Third-party content and attribution
 
-The MIT license in [LICENSE](LICENSE) covers the **application code** in this repository (`src/`, `scripts/`).
+The MIT license in [LICENSE](LICENSE) covers the **application code** in this repository (`iqra_app/lib/`, `scripts/`).
 The Qur'anic text, translations, tafsir and other data below were made by other people and remain under their
 own terms. They are included here for reading inside the app, not relicensed.
 
@@ -10,11 +10,11 @@ own terms. They are included here for reading inside the app, not relicensed.
 | Word-by-word meanings, transliteration, Madani mushaf page and line layout, glyph codes | [Quran.com API](https://quran.com) (Quran Foundation) | The glyph codes (`data/qcf/`) only make sense with the optional fonts and are git-ignored too. |
 | Tafsir (Ibn Kathir, Maarif-ul-Quran, Al-Jalalayn, Al-Mukhtasar, Al-Muyassar, As-Sa'di) | [spa5k/tafsir_api](https://github.com/spa5k/tafsir_api), sourced from quran.com | Each tafsir is the work of its author and publisher. |
 | Audio | [EveryAyah](https://everyayah.com) | Streamed and cached on the user's computer; no audio is stored in this repository. |
-| Old Madina font (the default Qur'an script) | [DigitalKhatt oldmadinafont](https://github.com/DigitalKhatt/oldmadinafont), after the old Madina Mushaf | SIL Open Font License 1.1, see `src/fonts/OFL-OldMadina.txt`. Always bundled. |
-| Scheherazade New font | [SIL International](https://software.sil.org/scheherazade/) | SIL Open Font License 1.1, see `src/fonts/OFL-ScheherazadeNew.txt`. Always bundled. |
-| Madani mushaf fonts (optional) | King Fahd Glorious Qur'an Printing Complex, distributed by [Quran Foundation](https://api-docs.quran.foundation/legal/mushaf-fonts-and-images/) | **Not included in this repository.** Fetched by `npm run fetch-fonts` into a git-ignored folder. The terms allow bundling the fonts in an application for the app's own use, require crediting Quran Foundation, and do not allow offering the files separately. Read them before distributing a build that includes these fonts. |
+| Old Madina font (the default Qur'an script) | [DigitalKhatt oldmadinafont](https://github.com/DigitalKhatt/oldmadinafont), after the old Madina Mushaf | SIL Open Font License 1.1, see `iqra_app/assets/fonts/OFL-OldMadina.txt`. Always bundled. |
+| Scheherazade New font | [SIL International](https://software.sil.org/scheherazade/) | SIL Open Font License 1.1, see `iqra_app/assets/fonts/OFL-ScheherazadeNew.txt`. Always bundled. |
+| Madani mushaf fonts (optional) | King Fahd Glorious Qur'an Printing Complex, distributed by [Quran Foundation](https://api-docs.quran.foundation/legal/mushaf-fonts-and-images/) | **Not included in this repository.** Kept in git-ignored folders (`iqra_app/assets/fonts/mushaf/`, `iqra_app/assets/qcf/`) and left out of public builds. The terms allow bundling the fonts in an application for the app's own use, require crediting Quran Foundation, and do not allow offering the files separately. Read them before distributing a build that includes these fonts. |
 | Reem Kufi (logo lettering) | [The Reem Kufi Project](https://github.com/aliftype/reem-kufi) | SIL Open Font License 1.1, see `assets/OFL-ReemKufi.txt`. Embedded in `assets/logo.svg`. |
-| Electron | [electronjs.org](https://www.electronjs.org) | MIT. Bundled in the Windows builds. |
+| Flutter, media_kit and other packages | [flutter.dev](https://flutter.dev), [pub.dev](https://pub.dev) | BSD / MIT / Apache-2.0, as listed by each package. Bundled in the builds (the app's licence page lists them). |
 
 If you are the author or rights holder of any translation or tafsir included here and would like it removed or
 credited differently, please open an issue and it will be taken out promptly.
