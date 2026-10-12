@@ -16,9 +16,3 @@ iqra_app/dist-local/
 *.log
 *.tmp.*
 .scratch/
-
-# Leftovers of the removed Electron app on this machine (never commit)
-node_modules/
-dist/
-dist-public/
-src/
