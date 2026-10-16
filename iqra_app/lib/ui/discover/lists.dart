@@ -10,6 +10,7 @@ import '../page_scaffold.dart';
 import '../reader.dart';
 import '../widgets.dart';
 import 'discover_widgets.dart';
+import 'hadith_detail.dart';
 
 const kHadithThemes = <(String, String)>[
   ('manners', 'Character and manners'),
@@ -26,7 +27,7 @@ const kHadithThemes = <(String, String)>[
   ('quran', 'The Qur’an'),
 ];
 
-Widget _pad(Widget w) => Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6), child: w);
+Widget _pad(Widget w) => Reveal(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6), child: w));
 
 class ShelfScreen extends StatelessWidget {
   const ShelfScreen({super.key, required this.id});
@@ -36,7 +37,13 @@ class ShelfScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final shelf = Content.I.shelves.firstWhere((s) => s['id'] == id);
-    final list = Content.I.storiesOf(id)..sort((a, b) => ((a['ord'] ?? a['n'] ?? 0) as num).compareTo((b['ord'] ?? b['n'] ?? 0) as num));
+    final raw = Content.I.storiesOf(id);
+    final position = {for (var i = 0; i < raw.length; i++) raw[i]: i};
+    // by the timeline number where a shelf has one, otherwise in the order written (List.sort is not stable on its own)
+    final list = [...raw]..sort((a, b) {
+        final c = ((a['ord'] ?? a['n'] ?? 0) as num).compareTo((b['ord'] ?? b['n'] ?? 0) as num);
+        return c != 0 ? c : position[a]!.compareTo(position[b]!);
+      });
     return LargePage(
       title: shelf['title'] as String,
       subtitle: shelf['blurb'] as String?,
@@ -84,7 +91,7 @@ class _HadithScreenState extends State<HadithScreen> {
     final title = _theme == null ? 'Hadith' : kHadithThemes.firstWhere((t) => t.$1 == _theme).$2;
     return LargePage(
       title: title,
-      subtitle: '${list.length} hadith · Arabic with a plain English summary',
+      subtitle: '${list.length} hadith · Arabic, translation and explanation',
       maxWidth: 860,
       slivers: [
         SliverToBoxAdapter(
@@ -116,19 +123,46 @@ class NawawiScreen extends StatelessWidget {
           itemCount: ar.length,
           itemBuilder: (_, i) {
             final h = ar[i] as Map<String, dynamic>;
-            final note = i < notes.length ? notes[i] : null;
-            return _pad(Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text('Hadith ${h['n']}${note != null ? ' · ${note['t']}' : ''}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                const SizedBox(height: 10),
-                Directionality(textDirection: TextDirection.rtl, child: Text(h['ar'] as String, style: TextStyle(fontFamily: kArabicFont, fontSize: 24, height: 1.9, color: c.text))),
-                if (note != null) ...[
+            final number = (h['n'] as num).toInt();
+            final note = number < notes.length ? notes[number] : null;
+            final hasX = h['x'] != null;
+            void open() => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => HadithDetailScreen(
+                    title: note != null ? note['t'] as String : 'Hadith ${h['n']}',
+                    arabic: h['ar'] as String,
+                    summary: (h['en'] as String?) ?? (note != null ? note['s'] as String : ''),
+                    source: 'The Forty Hadith of an-Nawawi, hadith ${h['n']}',
+                    explain: (h['x'] as Map?)?.cast<String, dynamic>(),
+                    favKey: 'nawawi:${h['n']}',
+                    number: (h['n'] as num).toInt(),
+                  ),
+                ));
+            return _pad(Pressable(
+              onTap: open,
+              radius: 20,
+              scale: 0.99,
+              hover: false,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('Hadith ${h['n']}${note != null ? ' · ${note['t']}' : ''}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   const SizedBox(height: 10),
-                  Text(note['s'] as String, style: TextStyle(color: c.textSecondary, fontSize: 15, height: 1.5)),
-                ],
-              ]),
+                  Directionality(textDirection: TextDirection.rtl, child: Text(h['ar'] as String, maxLines: 4, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: kArabicFont, fontSize: 24, height: 1.9, color: c.text))),
+                  if (h['en'] != null || note != null) ...[
+                    const SizedBox(height: 10),
+                    Text('TRANSLATION', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: c.accent)),
+                    const SizedBox(height: 3),
+                    Text((h['en'] as String?) ?? note!['s'] as String, maxLines: 5, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.text, fontSize: 15, height: 1.5)),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Icon(hasX ? Icons.auto_stories_rounded : Icons.chevron_right_rounded, size: 18, color: c.accent),
+                    const SizedBox(width: 6),
+                    Text(hasX ? 'Read the explanation' : 'Open', style: TextStyle(color: c.accent, fontWeight: FontWeight.w700)),
+                  ]),
+                ]),
+              ),
             ));
           },
         ),
@@ -150,7 +184,7 @@ class CollectionsScreen extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           sliver: SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 300, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 1.7),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 300, mainAxisSpacing: 14, crossAxisSpacing: 14, mainAxisExtent: 128),
             itemCount: cols.length,
             itemBuilder: (context, i) {
               final col = cols[i];
@@ -387,7 +421,7 @@ class NamesScreen extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           sliver: SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 230, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.15),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 230, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 148),
             itemCount: names.length,
             itemBuilder: (_, i) {
               final n = names[i];

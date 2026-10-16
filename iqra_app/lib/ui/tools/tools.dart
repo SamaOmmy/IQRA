@@ -7,13 +7,16 @@ import 'package:hijri/hijri_calendar.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/content.dart';
+import '../../core/hijri_events.dart';
 import '../../core/prayer.dart';
 import '../../core/quran.dart';
 import '../../core/store.dart';
 import '../../core/theme.dart';
 import '../page_scaffold.dart';
+import '../discover/story_screen.dart';
 import '../widgets.dart';
 import 'prayer_screen.dart';
+import 'qibla_screen.dart';
 
 void _open(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
@@ -24,6 +27,7 @@ class ToolsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = <(String, String, IconData, Widget Function())>[
       ('Prayer times', 'Times and qibla for your city', Icons.access_time_filled_rounded, () => const PrayerScreen()),
+      ('Qibla', 'A live compass to the Ka‘bah', Icons.explore_rounded, () => const QiblaScreen()),
       ('Tasbih', 'A counter with haptics', Icons.touch_app_rounded, () => const TasbihScreen()),
       ('Hijri calendar', 'Occasions and a date converter', Icons.calendar_month_rounded, () => const CalendarScreen()),
       ('Salah tracker', 'Mark your prayers, keep a streak', Icons.check_circle_rounded, () => const SalahScreen()),
@@ -37,7 +41,7 @@ class ToolsScreen extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           sliver: SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 330, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 1.55),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 330, mainAxisSpacing: 14, crossAxisSpacing: 14, mainAxisExtent: 156),
             itemCount: items.length,
             itemBuilder: (context, i) {
               final it = items[i];
@@ -182,8 +186,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   static const _dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _hijriShort = ['Muharram', 'Safar', 'Rabi‘ I', 'Rabi‘ II', 'Jumada I', 'Jumada II', 'Rajab', 'Sha‘ban', 'Ramadan', 'Shawwal', 'Dhul-Qa‘dah', 'Dhul-Hijjah'];
 
-  HijriCalendar _h(DateTime d) => HijriCalendar.fromDate(d);
+  HijriCalendar _h(DateTime d) => hijriOf(d);
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +234,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   crossAxisCount: 7,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 0.95,
+                  childAspectRatio: MediaQuery.of(context).size.width < 560 ? 0.8 : 1.15,
                   children: [
                     for (var i = 0; i < lead; i++) const SizedBox(),
                     for (var d = 1; d <= days; d++)
@@ -241,10 +246,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         return Container(
                           margin: const EdgeInsets.all(2),
                           decoration: BoxDecoration(color: isToday ? c.accent : (o != null ? c.accent.withValues(alpha: 0.14) : Colors.transparent), borderRadius: BorderRadius.circular(12)),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          child: FittedBox(fit: BoxFit.scaleDown, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                             Text('$d', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: isToday ? c.onAccent : c.text)),
                             Text('${hd.hDay}', style: TextStyle(fontSize: 10.5, color: isToday ? c.onAccent.withValues(alpha: 0.85) : c.textSecondary)),
-                          ]),
+                          ])),
                         );
                       }),
                   ],
@@ -284,19 +289,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
           itemCount: occasions.length,
           itemBuilder: (_, i) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-            child: Container(
+            child: Pressable(
+              onTap: occasions[i]['story'] == null ? null : () => openStory(context, occasions[i]['story'] as String),
+              radius: 16,
+              scale: 0.99,
+              hover: false,
+              child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(16)),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Container(
-                  width: 46,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  width: 64,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                   decoration: BoxDecoration(color: c.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)),
-                  child: Column(children: [Text('${occasions[i]['d']}', style: TextStyle(color: c.accent, fontWeight: FontWeight.w800, fontSize: 17)), Text('M${occasions[i]['m']}', style: TextStyle(color: c.accent, fontSize: 11))]),
+                  child: Column(children: [Text('${occasions[i]['d']}', style: TextStyle(color: c.accent, fontWeight: FontWeight.w800, fontSize: 17)), FittedBox(fit: BoxFit.scaleDown, child: Text(_hijriShort[(occasions[i]['m'] as int) - 1], style: TextStyle(color: c.accent, fontSize: 11, fontWeight: FontWeight.w700)))]),
                 ),
                 const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(occasions[i]['name'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)), const SizedBox(height: 2), Text(occasions[i]['note'] as String, style: TextStyle(color: c.textSecondary, height: 1.4, fontSize: 14))])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(occasions[i]['name'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)), const SizedBox(height: 2), Text(occasions[i]['note'] as String, style: TextStyle(color: c.textSecondary, height: 1.4, fontSize: 14)), if (occasions[i]['story'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Read the story  ›', style: TextStyle(color: c.accent, fontWeight: FontWeight.w700, fontSize: 13)))])),
               ]),
+            ),
             ),
           ),
         ),
@@ -670,12 +681,12 @@ class _ZakatScreenState extends State<ZakatScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: Column(children: [
-              field('goldPrice', 'Price of 1 gram of gold (your currency)', hint: 'Needed for the nisab (85 g of gold)'),
+              field('goldPrice', 'Gold price per gram', hint: 'Needed for the nisab (85 g of gold)'),
               field('cash', 'Cash and savings'),
               field('gold', 'Gold you own (grams)'),
               field('silver', 'Silver (value)'),
               field('invest', 'Investments and shares'),
-              field('business', 'Business goods and money owed to you'),
+              field('business', 'Business goods and money owed'),
               field('debts', 'Debts you owe now'),
               const SizedBox(height: 12),
               AnimatedContainer(

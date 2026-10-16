@@ -4,12 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../core/audio.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/audio.dart';
+import '../core/notify.dart';
+import '../core/store.dart';
 import '../core/theme.dart';
+import '../core/updates.dart';
 import 'discover/discover.dart';
 import 'library.dart';
+import 'listen.dart';
+import 'welcome.dart';
 import 'player.dart';
 import 'read.dart';
 import 'search.dart';
@@ -19,11 +24,12 @@ import 'tools/tools.dart';
 import 'window_controls.dart';
 import 'widgets.dart';
 
-enum Section { today, read, discover, tools, library, search, settings }
+enum Section { today, read, listen, discover, tools, library, search, settings }
 
 const _meta = <Section, (String, IconData, IconData)>{
   Section.today: ('Today', Icons.wb_sunny_outlined, Icons.wb_sunny_rounded),
   Section.read: ('Read', Icons.auto_stories_outlined, Icons.auto_stories_rounded),
+  Section.listen: ('Listen', Icons.headphones_outlined, Icons.headphones_rounded),
   Section.discover: ('Discover', Icons.explore_outlined, Icons.explore_rounded),
   Section.tools: ('Tools', Icons.apps_outlined, Icons.apps_rounded),
   Section.library: ('Library', Icons.bookmarks_outlined, Icons.bookmarks_rounded),
@@ -39,19 +45,69 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell> {
+class AppShellState extends State<AppShell> with WindowListener, SingleTickerProviderStateMixin {
   static AppShellState? current;
   BuildContext? get navContext => _keys[_section]!.currentState?.overlay?.context;
+  late final AppStore _store;
+  String _notifySig = '';
+  bool _showWelcome = false;
 
   @override
   void initState() {
     super.initState();
     current = this;
+    _store = context.read<AppStore>();
+    // people who already use the app skip the welcome
+    if (!_store.seenWelcome) {
+      if (_store.hasStartedReading || _store.place != null) {
+        _store.seenWelcome = true;
+      } else {
+        _showWelcome = true;
+      }
+    }
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) windowManager.addListener(this);
+    _store.addListener(_syncNotifications);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PrayerNotifier.init().then((_) => _syncNotifications());
+      Future<void>.delayed(const Duration(seconds: 4), () {
+        if (mounted) context.read<UpdateChecker>().check();
+      });
+    });
   }
+
+  @override
+  void dispose() {
+    _store.removeListener(_syncNotifications);
+    _fade.dispose();
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  // Reschedule prayer reminders whenever what they depend on changes.
+  void _syncNotifications() {
+    final p = _store.place;
+    final sig = '${_store.notifyPrayers}|${p?.name}|${_store.prayerMethod}|${_store.hanafi}|${_store.dailyVerseAt}|${_store.adhan}|${_store.alertPrayers.join(',')}|${_store.prayerAdjust}|${p?.lat}|${todayKey()}';
+    if (sig == _notifySig) return;
+    _notifySig = sig;
+    PrayerNotifier.reschedule(_store);
+  }
+
+  Future<void> _saveBounds() async {
+    final b = await windowManager.getBounds();
+    if (await windowManager.isMaximized()) return;
+    _store.saveWindowRect([b.left, b.top, b.width, b.height]);
+  }
+
+  @override
+  void onWindowResized() => _saveBounds();
+  @override
+  void onWindowMoved() => _saveBounds();
 
   Section _section = Section.today;
   final _keys = {for (final s in Section.values) s: GlobalKey<NavigatorState>()};
   final _visited = <Section>{Section.today};
+
+  late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
 
   void go(Section s) {
     if (s == _section) {
@@ -62,11 +118,13 @@ class AppShellState extends State<AppShell> {
       _section = s;
       _visited.add(s);
     });
+    if (_store.motion) _fade.forward(from: 0);
   }
 
   Widget _root(Section s) => switch (s) {
         Section.today => const TodayScreen(),
         Section.read => const ReadScreen(),
+        Section.listen => const ListenScreen(),
         Section.discover => const DiscoverScreen(),
         Section.tools => const ToolsScreen(),
         Section.library => const LibraryScreen(),
@@ -75,7 +133,7 @@ class AppShellState extends State<AppShell> {
       };
 
   Widget _body() {
-    return IndexedStack(
+    final stack = IndexedStack(
       index: Section.values.indexOf(_section),
       children: [
         for (final s in Section.values)
@@ -88,10 +146,17 @@ class AppShellState extends State<AppShell> {
             const SizedBox.shrink(),
       ],
     );
+    final curve = CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic);
+    return FadeTransition(
+      opacity: curve,
+      child: SlideTransition(position: Tween(begin: const Offset(0, 0.012), end: Offset.zero).animate(curve), child: stack),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_showWelcome) return WelcomeFlow(onDone: () => setState(() => _showWelcome = false));
+    context.watch<AppStore>(); // rebuild when the sidebar is collapsed or expanded
     final wide = MediaQuery.of(context).size.width >= 860;
     return PopScope(
       canPop: false,
@@ -113,6 +178,10 @@ class AppShellState extends State<AppShell> {
           final focused = FocusManager.instance.primaryFocus?.context;
           final typing = focused != null && (focused.widget is EditableText || focused.findAncestorWidgetOfExactType<EditableText>() != null);
           if (typing) return KeyEventResult.ignored;
+          if (e.logicalKey == LogicalKeyboardKey.keyB && HardwareKeyboard.instance.isControlPressed) {
+            _store.sidebarCollapsed = !_store.sidebarCollapsed;
+            return KeyEventResult.handled;
+          }
           final audio = context.read<AudioController>();
           if (e.logicalKey == LogicalKeyboardKey.space && audio.active) {
             audio.toggle();
@@ -146,7 +215,7 @@ class AppShellState extends State<AppShell> {
     return Scaffold(
       backgroundColor: c.bg,
       body: Row(children: [
-        _Sidebar(current: _section, onSelect: go),
+        _Sidebar(current: _section, onSelect: go, collapsed: _store.sidebarCollapsed, onToggle: () => _store.sidebarCollapsed = !_store.sidebarCollapsed),
         Container(width: 0.6, color: c.separator),
         Expanded(
           child: Column(children: [
@@ -161,7 +230,7 @@ class AppShellState extends State<AppShell> {
 
   Widget _mobile() {
     final c = context.c;
-    const tabs = [Section.today, Section.read, Section.discover, Section.library, Section.search];
+    const tabs = [Section.today, Section.read, Section.listen, Section.discover, Section.library];
     return Scaffold(
       backgroundColor: c.bg,
       body: Stack(children: [
@@ -215,82 +284,121 @@ class AppShellState extends State<AppShell> {
 }
 
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.current, required this.onSelect});
+  const _Sidebar({required this.current, required this.onSelect, required this.collapsed, required this.onToggle});
   final Section current;
   final ValueChanged<Section> onSelect;
+  final bool collapsed;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    Widget item(Section s, {int index = 0}) {
+    Widget item(Section s) {
       final sel = current == s;
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1.5),
-        child: Pressable(
-          onTap: () => onSelect(s),
-          radius: 9,
-          scale: 0.985,
-          hover: !sel,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(color: sel ? c.accent.withValues(alpha: c.dark ? 0.24 : 0.14) : Colors.transparent, borderRadius: BorderRadius.circular(9)),
-            child: Row(children: [
-              Icon(sel ? _meta[s]!.$3 : _meta[s]!.$2, size: 21, color: sel ? c.accent : c.text),
-              const SizedBox(width: 12),
-              Text(_meta[s]!.$1, style: TextStyle(fontSize: 14.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? c.accent : c.text)),
-            ]),
-          ),
+      final icon = Icon(sel ? _meta[s]!.$3 : _meta[s]!.$2, size: 21, color: sel ? c.accent : c.text);
+      final body = Pressable(
+        onTap: () => onSelect(s),
+        radius: 9,
+        scale: 0.985,
+        hover: !sel,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 12, vertical: 9),
+          alignment: collapsed ? Alignment.center : Alignment.centerLeft,
+          decoration: BoxDecoration(color: sel ? c.accent.withValues(alpha: c.dark ? 0.24 : 0.14) : Colors.transparent, borderRadius: BorderRadius.circular(9)),
+          child: collapsed
+              ? icon
+              : Row(children: [
+                  icon,
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(_meta[s]!.$1, maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(fontSize: 14.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? c.accent : c.text))),
+                ]),
         ),
+      );
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: collapsed ? 10 : 12, vertical: 1.5),
+        child: collapsed ? Tooltip(message: _meta[s]!.$1, preferBelow: false, child: body) : body,
       );
     }
 
-    return Container(
-      width: 244,
+    final logo = Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(gradient: LinearGradient(colors: [c.accent, c.accent.withValues(alpha: 0.7)]), borderRadius: BorderRadius.circular(8)),
+      alignment: Alignment.center,
+      child: Text('ق', style: TextStyle(fontFamily: kArabicFont, fontSize: 20, color: c.onAccent, height: 1.1)),
+    );
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: collapsed ? 68 : 244,
       color: c.sidebar,
-      child: Column(children: [
-        const DragToMoveArea(child: SizedBox(height: 14, width: double.infinity)),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 16, 14),
-          child: Row(children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(gradient: LinearGradient(colors: [c.accent, c.accent.withValues(alpha: 0.7)]), borderRadius: BorderRadius.circular(8)),
-              alignment: Alignment.center,
-              child: Text('ق', style: TextStyle(fontFamily: kArabicFont, fontSize: 20, color: c.onAccent, height: 1.1)),
-            ),
-            const SizedBox(width: 10),
-            const Text('IQRA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          child: Pressable(
-            onTap: () => onSelect(Section.search),
-            radius: 10,
-            hover: false,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(color: c.bg.withValues(alpha: c.dark ? 0.35 : 0.8), borderRadius: BorderRadius.circular(10), border: Border.all(color: c.separator)),
-              child: Row(children: [
-                Icon(Icons.search_rounded, size: 19, color: c.textSecondary),
-                const SizedBox(width: 8),
-                Text('Search', style: TextStyle(color: c.textSecondary, fontSize: 14)),
-              ]),
-            ),
+      clipBehavior: Clip.hardEdge,
+      decoration: null,
+      child: OverflowBox(
+        alignment: Alignment.topLeft,
+        minWidth: 0,
+        maxWidth: collapsed ? 68 : 244,
+        child: Column(children: [
+          const DragToMoveArea(child: SizedBox(height: 14, width: double.infinity)),
+          Padding(
+            padding: EdgeInsets.fromLTRB(collapsed ? 0 : 16, 4, collapsed ? 0 : 6, 12),
+            child: collapsed
+                ? Column(children: [
+                    logo,
+                    const SizedBox(height: 10),
+                    IconButton(tooltip: 'Show sidebar', onPressed: onToggle, icon: Icon(Icons.keyboard_double_arrow_right_rounded, color: c.textSecondary, size: 22)),
+                  ])
+                : Row(children: [
+                    logo,
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('IQRA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2))),
+                    IconButton(tooltip: 'Hide sidebar', onPressed: onToggle, icon: Icon(Icons.keyboard_double_arrow_left_rounded, color: c.textSecondary, size: 22)),
+                  ]),
           ),
-        ),
-        item(Section.today),
-        item(Section.read),
-        item(Section.discover),
-        item(Section.tools),
-        const Padding(padding: EdgeInsets.fromLTRB(24, 18, 12, 6), child: Align(alignment: Alignment.centerLeft, child: _GroupLabel('Library'))),
-        item(Section.library),
-        const Spacer(),
-        item(Section.settings),
-        const SizedBox(height: 12),
-      ]),
+          if (collapsed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Tooltip(
+                message: 'Search',
+                preferBelow: false,
+                child: IconButton(onPressed: () => onSelect(Section.search), icon: Icon(Icons.search_rounded, color: c.textSecondary)),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Pressable(
+                onTap: () => onSelect(Section.search),
+                radius: 10,
+                hover: false,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(color: c.bg.withValues(alpha: c.dark ? 0.35 : 0.8), borderRadius: BorderRadius.circular(10), border: Border.all(color: c.separator)),
+                  child: Row(children: [
+                    Icon(Icons.search_rounded, size: 19, color: c.textSecondary),
+                    const SizedBox(width: 8),
+                    Text('Search', style: TextStyle(color: c.textSecondary, fontSize: 14)),
+                  ]),
+                ),
+              ),
+            ),
+          item(Section.today),
+          item(Section.read),
+          item(Section.listen),
+          item(Section.discover),
+          item(Section.tools),
+          if (collapsed)
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10), child: Container(height: 0.8, color: c.separator))
+          else
+            const Padding(padding: EdgeInsets.fromLTRB(24, 18, 12, 6), child: Align(alignment: Alignment.centerLeft, child: _GroupLabel('Library'))),
+          item(Section.library),
+          const Spacer(),
+          item(Section.settings),
+          const SizedBox(height: 12),
+        ]),
+      ),
     );
   }
 }

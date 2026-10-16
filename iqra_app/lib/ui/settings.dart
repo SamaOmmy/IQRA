@@ -1,20 +1,21 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/adhan.dart';
+import '../core/notify.dart';
+import '../core/prayer.dart';
 import '../core/quran.dart';
 import '../core/store.dart';
 import '../core/theme.dart';
+import '../core/updates.dart';
+import 'downloads_screen.dart';
 import 'page_scaffold.dart';
+import 'plan_screen.dart';
+import 'tools/prayer_screen.dart';
 import 'widgets.dart';
 
-const _repo = 'SamaOmmy/IQRA';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,58 +25,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _version = '';
-  String? _update;
-  bool _checking = false;
-
-  @override
-  void initState() {
-    super.initState();
-    PackageInfo.fromPlatform().then((p) => mounted ? setState(() => _version = p.version) : null);
-  }
-
-  Future<void> _check() async {
-    setState(() {
-      _checking = true;
-      _update = null;
-    });
-    try {
-      final res = await http.get(Uri.parse('https://api.github.com/repos/$_repo/releases/latest'), headers: {'Accept': 'application/vnd.github+json'});
-      final j = jsonDecode(res.body) as Map<String, dynamic>;
-      final tag = (j['tag_name'] as String).replaceFirst('v', '');
-      setState(() => _update = _newer(tag, _version) ? 'Version $tag is available.' : 'You have the latest version.');
-      if (_newer(tag, _version)) {
-        final url = j['html_url'] as String;
-        if (mounted) showToast(context, 'Version $tag is available');
-        await launchUrl(Uri.parse(url));
-      }
-    } catch (_) {
-      setState(() => _update = 'Could not check. Try again when you are online.');
-    }
-    if (mounted) setState(() => _checking = false);
-  }
-
-  bool _newer(String a, String b) {
-    List<int> p(String s) => s.split('.').map((x) => int.tryParse(x.replaceAll(RegExp(r'\D'), '')) ?? 0).toList();
-    final x = p(a), y = p(b);
-    for (var i = 0; i < 3; i++) {
-      final u = i < x.length ? x[i] : 0, v = i < y.length ? y[i] : 0;
-      if (u != v) return u > v;
-    }
-    return false;
-  }
-
-  Future<void> _clearAudio() async {
-    final base = await getApplicationSupportDirectory();
-    final d = Directory('${base.path}/audio');
-    if (await d.exists()) await d.delete(recursive: true);
-    if (mounted) showToast(context, 'Downloaded recitations removed');
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.watch<AppStore>();
+    final up = context.watch<UpdateChecker>();
     Widget group(String title, List<Widget> children) => Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -83,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 4), child: Column(children: children)),
           ]),
         );
+    void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
     return LargePage(
       title: 'Settings',
@@ -100,16 +55,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider1(indent: 16),
             Padding(
               padding: const EdgeInsets.all(14),
-              child: Row(children: [
-                const Expanded(child: Text('Accent colour', style: TextStyle(fontWeight: FontWeight.w600))),
-                Wrap(spacing: 8, children: [
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Accent colour', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Wrap(spacing: 10, runSpacing: 10, children: [
                   for (final a in kAccents)
                     GestureDetector(
                       onTap: () => s.accent = a.$2?.toARGB32() ?? 0,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 160),
-                        width: 26,
-                        height: 26,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: a.$2 ?? c.surfaceAlt,
@@ -136,6 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(title: const Text('Arabic text size'), subtitle: Slider(min: 22, max: 48, value: s.arabicSize.clamp(22, 48), onChanged: (v) => s.arabicSize = v)),
             ListTile(title: const Text('Translation text size'), subtitle: Slider(min: 13, max: 26, value: s.translationSize.clamp(13, 26), onChanged: (v) => s.translationSize = v)),
             SwitchListTile(title: const Text('Open the mushaf page view'), subtitle: const Text('Otherwise opens verse by verse'), value: s.mushafView, onChanged: (v) => s.mushafView = v),
+            ListTile(title: const Text('Khatam plan'), subtitle: Text(s.plan == null ? 'Finish the Qur’an in a time you choose' : 'A plan is in progress'), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => push(const PlanScreen())),
           ]),
         ),
         SliverToBoxAdapter(
@@ -147,19 +104,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _pickReciter(context),
             ),
             SwitchListTile(title: const Text('Continue to the next surah'), value: s.continuous, onChanged: (v) => s.continuous = v),
-            ListTile(title: const Text('Remove downloaded recitations'), subtitle: const Text('Frees space; they download again when played'), trailing: const Icon(Icons.delete_outline_rounded), onTap: _clearAudio),
+            ListTile(title: const Text('Downloads'), subtitle: const Text('Recitations and tafsir for offline use'), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => push(const DownloadsScreen())),
+          ]),
+        ),
+        SliverToBoxAdapter(
+          child: group('Prayer', [
+            ListTile(
+              title: const Text('City and calculation'),
+              subtitle: Text(s.place == null ? 'Not set' : '${s.place!.name}${s.place!.country.isEmpty ? '' : ', ${s.place!.country}'}'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => push(const PrayerScreen()),
+            ),
+            SwitchListTile(
+              title: const Text('Prayer time reminders'),
+              subtitle: Text(s.place == null ? 'Choose a city first' : 'A notification when each prayer begins'),
+              value: s.notifyPrayers && s.place != null,
+              onChanged: s.place == null
+                  ? null
+                  : (v) async {
+                      if (v) {
+                        final ok = await PrayerNotifier.requestPermission();
+                        if (!ok && context.mounted) showToast(context, 'Notifications are turned off for IQRA in system settings');
+                      }
+                      s.notifyPrayers = v;
+                    },
+            ),
+            SwitchListTile(
+              title: const Text('Play the adhan'),
+              subtitle: const Text('The call to prayer sounds with each reminder'),
+              value: s.adhan,
+              onChanged: (v) => s.adhan = v,
+            ),
+            if (s.notifyPrayers && s.place != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Remind me for', style: TextStyle(color: context.c.textSecondary, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 8, runSpacing: 6, children: [
+                    for (final k in const ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'])
+                      FilterChip(
+                        label: Text(kPrayerNames[k]!),
+                        selected: s.alertPrayers.contains(k),
+                        showCheckmark: false,
+                        selectedColor: context.c.accent.withValues(alpha: 0.2),
+                        onSelected: (v) => s.setAlert(k, v),
+                      ),
+                  ]),
+                ]),
+              ),
+            if (s.adhan)
+              ListTile(
+                title: const Text('Listen to the adhan'),
+                subtitle: const Text('Recording: Aaqib Azeez (CC BY-SA 4.0), via Wikimedia Commons'),
+                trailing: const Icon(Icons.play_circle_outline_rounded),
+                onTap: () => AdhanPlayer.play(),
+              ),
+            ListTile(
+              title: const Text('Hijri date adjustment'),
+              subtitle: Text(s.hijriAdjust == 0 ? 'As calculated. Change it by a day if your local moon sighting differs.' : '${s.hijriAdjust > 0 ? '+' : ''}${s.hijriAdjust} day${s.hijriAdjust.abs() == 1 ? '' : 's'} from the calculated date'),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(onPressed: s.hijriAdjust <= -2 ? null : () => s.hijriAdjust = s.hijriAdjust - 1, icon: const Icon(Icons.remove_circle_outline_rounded)),
+                IconButton(onPressed: s.hijriAdjust >= 2 ? null : () => s.hijriAdjust = s.hijriAdjust + 1, icon: const Icon(Icons.add_circle_outline_rounded)),
+              ]),
+            ),
+            ListTile(
+              title: const Text('Verse of the day reminder'),
+              subtitle: Text(s.dailyVerseAt < 0 ? 'Off' : '${(s.dailyVerseAt ~/ 60).toString().padLeft(2, '0')}:${(s.dailyVerseAt % 60).toString().padLeft(2, '0')} every day'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _pickVerseTime(context),
+            ),
+            if ((s.notifyPrayers && s.place != null) || s.dailyVerseAt >= 0)
+              ListTile(title: const Text('Send a test notification'), trailing: const Icon(Icons.notifications_active_outlined), onTap: () => PrayerNotifier.test(adhan: s.adhan)),
+          ]),
+        ),
+        SliverToBoxAdapter(
+          child: group('Your data', [
+            ListTile(
+              title: const Text('Copy a backup'),
+              subtitle: const Text('Bookmarks, notes, progress and settings, as text you can keep'),
+              trailing: const Icon(Icons.copy_all_rounded),
+              onTap: () async {
+                await Clipboard.setData(ClipboardData(text: s.exportBackup()));
+                if (context.mounted) showToast(context, 'Backup copied. Paste it somewhere safe.');
+              },
+            ),
+            ListTile(
+              title: const Text('Restore from a backup'),
+              subtitle: const Text('Paste a backup you copied before'),
+              trailing: const Icon(Icons.restore_rounded),
+              onTap: () => _restoreDialog(context),
+            ),
           ]),
         ),
         SliverToBoxAdapter(
           child: group('About', [
-            ListTile(title: const Text('IQRA'), subtitle: Text('Version $_version · free and open source (MIT)')),
+            ListTile(title: const Text('IQRA'), subtitle: Text('Version ${up.current.isEmpty ? '…' : up.current} · free and open source (MIT)')),
             ListTile(
               title: const Text('Check for updates'),
-              subtitle: Text(_checking ? 'Checking…' : (_update ?? 'See if a newer version is available')),
+              subtitle: Text(up.checking ? 'Checking…' : (up.message ?? 'See if a newer version is available')),
               trailing: const Icon(Icons.refresh_rounded),
-              onTap: _checking ? null : _check,
+              onTap: up.checking
+                  ? null
+                  : () async {
+                      await up.check(announce: true);
+                      if (up.available && up.url != null) await launchUrl(Uri.parse(up.url!));
+                    },
             ),
-            ListTile(title: const Text('Source code and licences'), subtitle: const Text('github.com/SamaOmmy/IQRA'), trailing: const Icon(Icons.open_in_new_rounded), onTap: () => launchUrl(Uri.parse('https://github.com/$_repo'))),
+            ListTile(title: const Text('Source code and licences'), subtitle: const Text('github.com/SamaOmmy/IQRA'), trailing: const Icon(Icons.open_in_new_rounded), onTap: () => launchUrl(Uri.parse('https://github.com/$kRepo'))),
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 4, 16, 14),
               child: Text(
@@ -170,6 +222,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]),
         ),
       ],
+    );
+  }
+
+  void _pickVerseTime(BuildContext context) {
+    final s = context.read<AppStore>();
+    const options = <(String, int)>[('Off', -1), ('6:00 AM', 360), ('7:00 AM', 420), ('8:00 AM', 480), ('12:30 PM', 750), ('6:00 PM', 1080), ('9:00 PM', 1260)];
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Verse of the day'),
+        children: [
+          for (final o in options)
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                if (o.$2 >= 0) await PrayerNotifier.requestPermission();
+                s.dailyVerseAt = o.$2;
+              },
+              child: Row(children: [
+                Expanded(child: Text(o.$1, style: const TextStyle(fontSize: 16))),
+                if (s.dailyVerseAt == o.$2) Icon(Icons.check_rounded, color: ctx.c.accent),
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _restoreDialog(BuildContext context) {
+    final store = context.read<AppStore>();
+    final ctl = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore a backup'),
+        content: SizedBox(
+          width: 420,
+          child: TextField(controller: ctl, minLines: 4, maxLines: 8, decoration: const InputDecoration(hintText: 'Paste the backup text here')),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              try {
+                final n = store.importBackup(ctl.text.trim());
+                Navigator.pop(ctx);
+                showToast(context, 'Restored $n settings');
+              } catch (_) {
+                showToast(ctx, 'That is not an IQRA backup');
+              }
+            },
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
     );
   }
 

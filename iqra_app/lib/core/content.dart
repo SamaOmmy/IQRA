@@ -31,7 +31,8 @@ class Content {
   List<J> get moments => _list('moments');
   List<J> get occasions => _list('occasions');
   List<J> get fasting => _list('fasting');
-  List<J> get nawawiNotes => _list('nawawi');
+  /// Titles and summaries of the Forty Hadith, indexed by hadith number (index 0 is empty).
+  List<J?> get nawawiNotes => [for (final e in _d['nawawi'] as List) e as J?];
   List<List<dynamic>> get dailyVerses => [for (final e in _d['dailyVerses'] as List) (e as List)];
   List<int> get dailyDuaChapters => (_d['dailyDuaChapters'] as List).cast<int>();
   List<List<dynamic>> get names => [for (final e in _d['names'] as List) (e as List)];

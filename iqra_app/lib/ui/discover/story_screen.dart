@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -47,6 +49,7 @@ class StoryScreen extends StatelessWidget {
         );
 
     return LargePage(
+      key: ValueKey('story-$id'),
       title: story['title'] as String,
       subtitle: '${shelf['title'] ?? ''} · $mins min read',
       maxWidth: 820,
@@ -58,24 +61,34 @@ class StoryScreen extends StatelessWidget {
         ),
       ],
       slivers: [
+        SliverToBoxAdapter(child: _MarkRead(id: id)),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: ColorTile(
               seed: story['id'].toString().codeUnits.fold<int>(7, (a, b) => (a * 31 + b) & 0xFFFF),
-              height: wide ? 190 : 150,
+              height: wide ? 190 : 176,
               radius: 24,
               child: Padding(
                 padding: const EdgeInsets.all(22),
                 child: Row(children: [
                   Expanded(
+                    flex: 3,
                     child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
                       if (story['era'] != null) Text(story['era'] as String, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13.5, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(story['title'] as String, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.15, letterSpacing: -0.5)),
+                      Text(story['title'] as String, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: wide ? 24 : 22, fontWeight: FontWeight.w800, height: 1.15, letterSpacing: -0.5)),
                     ]),
                   ),
-                  Directionality(textDirection: TextDirection.rtl, child: Text((story['ar'] as String?) ?? '', style: const TextStyle(fontFamily: kArabicFont, color: Colors.white, fontSize: 38))),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    flex: 2,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Directionality(textDirection: TextDirection.rtl, child: Text((story['ar'] as String?) ?? '', style: const TextStyle(fontFamily: kArabicFont, color: Colors.white, fontSize: 38))),
+                    ),
+                  ),
                 ]),
               ),
             ),
@@ -113,7 +126,6 @@ class StoryScreen extends StatelessWidget {
           ),
         ),
         if (sections.isNotEmpty) ...[
-          SliverToBoxAdapter(child: section('In depth', ar: 'بالتفصيل')),
           SliverList.builder(
             itemCount: sections.length,
             itemBuilder: (context, i) {
@@ -209,4 +221,34 @@ class _NavBtn extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Counts the story as read once the person has stayed on it for a few seconds.
+class _MarkRead extends StatefulWidget {
+  const _MarkRead({required this.id});
+  final String id;
+
+  @override
+  State<_MarkRead> createState() => _MarkReadState();
+}
+
+class _MarkReadState extends State<_MarkRead> {
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    final store = context.read<AppStore>();
+    _t = Timer(const Duration(seconds: 8), () => store.markStoryRead(widget.id));
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

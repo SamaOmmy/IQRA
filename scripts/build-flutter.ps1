@@ -1,4 +1,5 @@
-# Builds the Flutter app: Windows installer + portable zip, and Android APKs, into iqra_app\dist.
+# Builds the Flutter app: Windows installer + portable zip, and Android APKs, into iqra_app\dist-public or dist-local.
+# File names say which device they are for: IQRA-<version>-Windows-Setup.exe, -Windows-Portable.zip, -Android-arm64.apk, -Android-all-phones.apk
 #
 #   scripts\build-flutter.ps1            public build: the licensed Madani mushaf fonts and glyph data are left OUT
 #   scripts\build-flutter.ps1 -Local     personal build: includes them (never publish this one; see NOTICE.md)
@@ -39,23 +40,25 @@ try {
       $leak = Get-ChildItem (Join-Path $rel 'data\flutter_assets\assets') -Recurse -File | Where-Object { $_.FullName -match 'fonts\\mushaf\\.*\.ttf$' -or $_.Name -eq 'qcf.json' }
       if ($leak) { throw "licensed files found in the public build: $($leak.Name -join ', ')" }
     }
-    $zip = Join-Path $dist "IQRA-$version-windows-portable.zip"
+    $zip = Join-Path $dist "IQRA-$version-Windows-Portable.zip"
     if (Test-Path $zip) { Remove-Item $zip -Force }
     Compress-Archive -Path (Join-Path $rel '*') -DestinationPath $zip
     $nsis = Get-ChildItem "$env:LOCALAPPDATA\electron-builder\Cache\nsis-3.0.4.1" -Recurse -Filter makensis.exe | Where-Object { $_.FullName -notmatch '\\Bin\\' } | Select-Object -First 1
     if ($nsis) {
-      $out = Join-Path $dist "IQRA-Setup-$version.exe"
+      $out = Join-Path $dist "IQRA-$version-Windows-Setup.exe"
       & $nsis.FullName "/DSRC=$rel" "/DVERSION=$version" "/DOUT=$out" (Join-Path $PSScriptRoot 'installer.nsi')
       if ($LASTEXITCODE -ne 0) { throw 'installer build failed' }
     } else { Write-Warning 'makensis not found: only the portable zip was made' }
   }
 
   if (-not $SkipAndroid) {
-    flutter build apk --release --split-per-abi
+    # the smaller file for modern 64-bit phones, and one file that runs on every phone
+    flutter build apk --release --split-per-abi --target-platform android-arm64
+    if ($LASTEXITCODE -ne 0) { throw 'arm64 apk build failed' }
+    Copy-Item (Join-Path $app 'build\app\outputs\flutter-apk\app-arm64-v8a-release.apk') (Join-Path $dist "IQRA-$version-Android-arm64.apk") -Force
+    flutter build apk --release
     if ($LASTEXITCODE -ne 0) { throw 'apk build failed' }
-    Get-ChildItem (Join-Path $app 'build\app\outputs\flutter-apk') -Filter *.apk | ForEach-Object {
-      Copy-Item $_.FullName (Join-Path $dist ("IQRA-$version-" + ($_.Name -replace '^app-', ''))) -Force
-    }
+    Copy-Item (Join-Path $app 'build\app\outputs\flutter-apk\app-release.apk') (Join-Path $dist "IQRA-$version-Android-all-phones.apk") -Force
   }
   Write-Host "Done: $dist"
   Get-ChildItem $dist | Select-Object Name, @{n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }

@@ -10,6 +10,8 @@ import '../../core/theme.dart';
 import '../../core/translation.dart';
 import '../widgets.dart';
 import '../reader.dart';
+import '../share_card.dart';
+import 'hadith_detail.dart';
 import 'story_screen.dart';
 
 int _seedOf(String s) => s.codeUnits.fold<int>(7, (a, b) => (a * 31 + b) & 0xFFFF);
@@ -104,7 +106,7 @@ class StoryRow extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${index != null ? '$index. ' : ''}${story['title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, height: 1.25)),
               const SizedBox(height: 2),
-              Text('${era != null ? '$era · ' : ''}$mins min${Content.I.deep(id) != null ? ' · in depth' : ''}', style: TextStyle(color: c.accent, fontSize: 12.5, fontWeight: FontWeight.w600)),
+              Text('${era != null ? '$era · ' : ''}$mins min read', style: TextStyle(color: c.accent, fontSize: 12.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Text(first, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.textSecondary, fontSize: 13.5, height: 1.35)),
             ]),
@@ -133,16 +135,28 @@ class HadithCard extends StatelessWidget {
         const SizedBox(height: 12),
         Directionality(textDirection: TextDirection.rtl, child: Text(h['ar'] as String, style: TextStyle(fontFamily: kArabicFont, fontSize: 26, height: 1.9, color: c.text))),
         const SizedBox(height: 10),
+        Text('TRANSLATION', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: c.accent)),
+        const SizedBox(height: 4),
         Text(h['en'] as String, style: TextStyle(fontSize: 15.5, height: 1.5, color: c.text)),
         const SizedBox(height: 8),
         Text(h['src'] as String, style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
         const SizedBox(height: 6),
-        Row(children: [
+        if (h['x'] != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 4),
+            child: FilledButton.tonalIcon(
+              onPressed: () => openHadith(context, h),
+              icon: const Icon(Icons.auto_stories_rounded, size: 18),
+              label: const Text('Read the explanation'),
+            ),
+          ),
+        Wrap(children: [
           _ActBtn(store.isFav(key) ? Icons.favorite_rounded : Icons.favorite_border_rounded, store.isFav(key) ? 'Saved' : 'Save', () => store.toggleFav(key), on: store.isFav(key)),
           _ActBtn(Icons.copy_rounded, 'Copy', () {
             Clipboard.setData(ClipboardData(text: text));
             showToast(context, 'Copied');
           }),
+          _ActBtn(Icons.image_rounded, 'Image', () => showShareCard(context, arabic: h['ar'] as String, translation: h['en'] as String, reference: h['src'] as String)),
           _ActBtn(Icons.ios_share_rounded, 'Share', () => SharePlus.instance.share(ShareParams(text: text))),
         ]),
       ]),
@@ -282,4 +296,18 @@ class _DuaBlockState extends State<DuaBlock> {
       ]),
     );
   }
+}
+
+
+void openHadith(BuildContext context, Map<String, dynamic> h) {
+  Navigator.of(context).push(MaterialPageRoute(
+    builder: (_) => HadithDetailScreen(
+      title: h['title'] as String,
+      arabic: h['ar'] as String,
+      summary: h['en'] as String,
+      source: h['src'] as String?,
+      explain: (h['x'] as Map?)?.cast<String, dynamic>(),
+      favKey: 'hadith:${h['id']}',
+    ),
+  ));
 }

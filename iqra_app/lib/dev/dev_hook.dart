@@ -6,12 +6,26 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/content.dart';
+import '../ui/discover/discover_widgets.dart';
 import '../ui/discover/lists.dart';
+import '../ui/downloads_screen.dart';
+import '../ui/plan_screen.dart';
+import '../ui/review_screen.dart';
+import '../ui/share_card.dart';
+import '../ui/settings.dart';
+import '../ui/tools/city_picker.dart';
+import '../ui/tools/prayer_screen.dart';
+import '../ui/tools/qibla_screen.dart';
+import '../ui/tools/tools.dart';
+import '../ui/welcome.dart';
 import '../ui/discover/story_screen.dart';
 import '../ui/player.dart';
 import '../ui/reader.dart';
 import '../ui/shell.dart';
+import 'package:window_manager/window_manager.dart';
 import '../core/audio.dart';
+import '../core/store.dart';
 import 'package:provider/provider.dart';
 
 /// Debug builds only: lets a developer script drive the app and save screenshots of the app's own pixels.
@@ -24,6 +38,7 @@ import 'package:provider/provider.dart';
 ///   back
 class DevHook {
   static Timer? _t;
+  static final ValueNotifier<double> textScale = ValueNotifier(1.0);
 
   static void start(GlobalKey repaintKey) {
     if (!kDebugMode) return;
@@ -61,6 +76,51 @@ class DevHook {
         if (ctx != null) await ctx.read<AudioController>().playVerse(int.parse(p[1]), int.parse(p[2]));
       case 'now':
         if (ctx != null) await showNowPlaying(ctx);
+      case 'size':
+        await windowManager.setSize(Size(double.parse(p[1]), double.parse(p[2])));
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+      case 'scale':
+        textScale.value = double.parse(p[1]);
+      case 'theme':
+        if (ctx != null) ctx.read<AppStore>().theme = p[1];
+      case 'accent':
+        if (ctx != null) ctx.read<AppStore>().accent = int.parse(p[1]);
+      case 'open':
+        if (ctx != null) {
+          final w = switch (p[1]) {
+            'plan' => const PlanScreen(),
+            'downloads' => const DownloadsScreen(),
+            'prayer' => const PrayerScreen(),
+            'qibla' => const QiblaScreen(),
+            'nawawi' => const NawawiScreen(),
+            'hadith' => const HadithScreen(),
+            'settings' => const SettingsScreen(),
+            'tasbih' => const TasbihScreen(),
+            'calendar' => const CalendarScreen(),
+            'salah' => const SalahScreen(),
+            'quiz' => const QuizScreen(),
+            'zakat' => const ZakatScreen(),
+            'welcome' => WelcomeFlow(onDone: () => Navigator.of(ctx).maybePop()),
+            _ => null,
+          };
+          if (w != null) Navigator.of(ctx).push(WidgetsPageRoute(w));
+        }
+      case 'hadithdetail':
+        if (ctx != null) openHadith(ctx, Content.I.hadith[int.parse(p[1])] as Map<String, dynamic>);
+      case 'citypicker':
+        if (ctx != null) pickCity(ctx);
+      case 'sharecard':
+        if (ctx != null) showShareCard(ctx, arabic: 'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ', translation: '[All] praise is [due] to Allah, Lord of the worlds', reference: 'Al-Faatiha 1:2');
+      case 'mem':
+        if (ctx != null) ctx.read<AppStore>().toggleMemorised('${p[1]}:${p[2]}');
+      case 'wbw':
+        if (ctx != null) ctx.read<AppStore>().wordByWord = p[1] == 'on';
+      case 'translit':
+        if (ctx != null) ctx.read<AppStore>().transliteration = p[1] == 'on';
+      case 'review':
+        if (ctx != null) Navigator.of(ctx).push(WidgetsPageRoute(const ReviewScreen()));
+      case 'pop':
+        if (ctx != null) Navigator.of(ctx, rootNavigator: true).maybePop();
       case 'back':
         if (ctx != null) Navigator.of(ctx).maybePop();
       case 'shot':

@@ -1,15 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:media_kit/media_kit.dart';
-import 'package:path_provider/path_provider.dart';
 
+import 'audio_cache.dart';
 import 'quran.dart';
 import 'store.dart';
 
-enum PlayScope { verse, surah, continuous, page }
+enum PlayScope { verse, surah, continuous, page, queue, range }
 
 /// Verse-by-verse recitation. Each verse is downloaded once from everyayah.com into the app's folder, then played from disk.
 class AudioController extends ChangeNotifier {
@@ -36,7 +34,6 @@ class AudioController extends ChangeNotifier {
   final AppStore store;
   late final Player player;
   final _subs = <StreamSubscription>[];
-  final _http = http.Client();
 
   VerseRef? current;
   bool playing = false;
@@ -45,8 +42,19 @@ class AudioController extends ChangeNotifier {
   Duration position = Duration.zero, duration = Duration.zero;
   PlayScope scope = PlayScope.continuous;
   int? pageScope;
-  int repeatEach = 1; // memorisation: how many times each verse repeats
+
+  /// memorisation: how many times each verse repeats before moving on
+  int repeatEach = 1;
   int _repeatDone = 0;
+
+  /// a playlist of whole surahs
+  List<int> queue = const [];
+  int queueIndex = 0;
+  String? queueTitle;
+
+  /// a looped range of verses within one surah (repeatCount 0 = until stopped)
+  int rangeFrom = 1, rangeTo = 1, rangeRepeats = 1, _rangeDone = 0;
+
   Timer? _sleep;
   DateTime? sleepAt;
   int _token = 0;
@@ -55,38 +63,26 @@ class AudioController extends ChangeNotifier {
   Ayah? get ayah => current == null ? null : Quran.I.ayah(current!.s, current!.a);
   double get progress => duration.inMilliseconds == 0 ? 0 : (position.inMilliseconds / duration.inMilliseconds).clamp(0, 1).toDouble();
 
-  static String _file(int s, int a) => '${s.toString().padLeft(3, '0')}${a.toString().padLeft(3, '0')}.mp3';
-
-  Future<File> _local(String reciter, int s, int a) async {
-    final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}/audio/$reciter');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return File('${dir.path}/${_file(s, a)}');
-  }
-
-  Future<String> _ensure(String reciter, int s, int a) async {
-    final f = await _local(reciter, s, a);
-    if (await f.exists() && await f.length() > 1024) return f.path;
-    final res = await _http.get(Uri.parse('https://everyayah.com/data/$reciter/${_file(s, a)}'));
-    if (res.statusCode != 200) throw Exception('Audio unavailable (${res.statusCode}). Check your connection.');
-    final tmp = File('${f.path}.part');
-    await tmp.writeAsBytes(res.bodyBytes, flush: true);
-    await tmp.rename(f.path);
-    return f.path;
-  }
-
   Future<void> playVerse(int s, int a, {PlayScope? scope, int? page}) async {
     if (scope != null) this.scope = scope;
+    if (scope != PlayScope.queue) {
+      queue = const [];
+      queueTitle = null;
+    }
     pageScope = page;
     final token = ++_token;
+    final previous = current;
     current = VerseRef(s, a);
     error = null;
     loading = true;
     _repeatDone = 0;
+    position = Duration.zero;
+    duration = Duration.zero;
     notifyListeners();
     store.setLast(s, a, Quran.I.ayah(s, a).page);
+    if (previous == null || previous.s != s) store.pushRecentSurah(s);
     try {
-      final path = await _ensure(store.reciter, s, a);
+      final path = await AudioCache.ensure(store.reciter, s, a);
       if (token != _token) return;
       await player.open(Media(Uri.file(path).toString()), play: true);
       await player.setRate(store.speed);
@@ -102,28 +98,59 @@ class AudioController extends ChangeNotifier {
     }
   }
 
+  /// Plays whole surahs one after another.
+  Future<void> playQueue(List<int> surahs, {String? title, int from = 0}) async {
+    if (surahs.isEmpty) return;
+    queue = List<int>.of(surahs);
+    queueIndex = from.clamp(0, surahs.length - 1);
+    queueTitle = title;
+    await playVerse(queue[queueIndex], 1, scope: PlayScope.queue);
+  }
+
+  /// Loops verses [from]..[to] of a surah, [repeats] times (0 = until stopped).
+  Future<void> playRange(int surah, int from, int to, {int repeats = 0}) async {
+    rangeFrom = from;
+    rangeTo = to;
+    rangeRepeats = repeats;
+    _rangeDone = 0;
+    await playVerse(surah, from, scope: PlayScope.range);
+  }
+
   void _prefetch(int s, int a) {
     var n = VerseRef(s, a);
     for (var i = 0; i < 2; i++) {
       final nx = Quran.I.next(n.s, n.a);
       if (nx == null) return;
       n = nx;
-      _ensure(store.reciter, n.s, n.a).catchError((_) => '');
+      AudioCache.ensure(store.reciter, n.s, n.a).catchError((_) => '');
     }
   }
 
   VerseRef? _after(VerseRef v) {
-    final nx = Quran.I.next(v.s, v.a);
-    if (nx == null) return null;
     switch (scope) {
       case PlayScope.verse:
         return null;
       case PlayScope.surah:
-        return nx.s == v.s ? nx : null;
+        final nx = Quran.I.next(v.s, v.a);
+        return nx != null && nx.s == v.s ? nx : null;
       case PlayScope.page:
-        return pageScope != null && Quran.I.ayah(nx.s, nx.a).page == pageScope ? nx : null;
+        final nx = Quran.I.next(v.s, v.a);
+        return nx != null && pageScope != null && Quran.I.ayah(nx.s, nx.a).page == pageScope ? nx : null;
       case PlayScope.continuous:
-        return nx;
+        return Quran.I.next(v.s, v.a);
+      case PlayScope.queue:
+        final nx = Quran.I.next(v.s, v.a);
+        if (nx != null && nx.s == v.s) return nx;
+        if (queueIndex + 1 < queue.length) {
+          queueIndex++;
+          return VerseRef(queue[queueIndex], 1);
+        }
+        return null;
+      case PlayScope.range:
+        if (v.a < rangeTo) return VerseRef(v.s, v.a + 1);
+        _rangeDone++;
+        if (rangeRepeats == 0 || _rangeDone < rangeRepeats) return VerseRef(v.s, rangeFrom);
+        return null;
     }
   }
 
@@ -148,6 +175,16 @@ class AudioController extends ChangeNotifier {
   Future<void> next() async {
     final c = current;
     if (c == null) return;
+    if (scope == PlayScope.queue) {
+      final nx = Quran.I.next(c.s, c.a);
+      if (nx != null && nx.s == c.s) {
+        await playVerse(nx.s, nx.a);
+      } else if (queueIndex + 1 < queue.length) {
+        queueIndex++;
+        await playVerse(queue[queueIndex], 1);
+      }
+      return;
+    }
     final nx = Quran.I.next(c.s, c.a);
     if (nx != null) await playVerse(nx.s, nx.a);
   }
@@ -161,6 +198,29 @@ class AudioController extends ChangeNotifier {
     }
     final pv = Quran.I.previous(c.s, c.a);
     if (pv != null) await playVerse(pv.s, pv.a);
+  }
+
+  /// Jumps to the first verse of the next / previous surah (skip in a playlist).
+  Future<void> nextSurah() async {
+    final c = current;
+    if (c == null) return;
+    if (scope == PlayScope.queue && queueIndex + 1 < queue.length) {
+      queueIndex++;
+      await playVerse(queue[queueIndex], 1);
+    } else if (c.s < 114) {
+      await playVerse(c.s + 1, 1);
+    }
+  }
+
+  Future<void> previousSurah() async {
+    final c = current;
+    if (c == null) return;
+    if (scope == PlayScope.queue && queueIndex > 0) {
+      queueIndex--;
+      await playVerse(queue[queueIndex], 1);
+    } else if (c.s > 1) {
+      await playVerse(c.s - 1, 1);
+    }
   }
 
   Future<void> toggle() async {
@@ -193,7 +253,7 @@ class AudioController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Stops playback after [minutes]; pass 0 to cancel. A negative value means "at the end of this verse".
+  /// Stops playback after [minutes]; pass 0 to cancel.
   void sleepIn(int minutes) {
     _sleep?.cancel();
     sleepAt = null;
@@ -215,7 +275,6 @@ class AudioController extends ChangeNotifier {
     }
     _sleep?.cancel();
     player.dispose();
-    _http.close();
     super.dispose();
   }
 }

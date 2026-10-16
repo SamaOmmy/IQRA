@@ -58,14 +58,49 @@ const azkar = read('azkar-en.json').map((x) => ({
 }));
 write('discover/azkar.json', azkar);
 
-const nawawi = read('nawawi-ar.json').hadiths.map((h) => ({ n: h.hadithnumber, ar: String(h.text).replace(/\s+/g, ' ').trim() }));
+// The source text carries the narrator's chain, the compiler's references ("[رَوَاهُ ...]", "حديث حسن ...") and <br> tags: keep the hadith itself.
+const DIA = '[\u064B-\u0652\u0670]*';
+const loose = (w) => new RegExp([...w].map((ch) => ch + DIA).join(''));
+const TAIL = [loose('رَوَاهُ'), loose('رَوَيْنَاهُ'), loose('حَدِيثٌ حَسَنٌ'), loose('حديث حسن'), loose('وَاَلتِّرْمِذِيُّ'), /،\s*،/, /\sبهذا اللفظ/];
+function cleanNawawi(n, raw) {
+  let t = String(raw).replace(/<br\s*\/?>/g, ' ').replace(/[‎‏‪-‮]/g, '');
+  // references in square brackets (not the words the Prophet's addition "[ يشهد أن لا إله إلا الله ... ]" in hadith 14)
+  t = t.replace(/\[[^\]]*\]/g, (m) => (/رَوَاهُ|رواه|رقم|وَمُسْلِمٌ|الْبُخَارِيُّ|وَالنَّسَائِيّ|السنن|راجع|سورة|\d\/\d/.test(m) ? ' ' : m));
+  if (n === 19) t = t.replace(new RegExp(loose('رَوَاهُ التِّرْمِذِيُّ').source + '[^.]*\.'), ' ');
+  if (n === 27) t = t.replace(new RegExp(loose('رَوَاهُ مُسْلِمٌ').source + '\s*\.?'), ' ');
+  let cut = t.length;
+  for (const re of TAIL) {
+    const m = re.exec(t);
+    if (m && m.index > 40 && m.index < cut) cut = m.index;
+  }
+  t = t.slice(0, cut).replace(/\s+/g, ' ').replace(/\s+([.،:])/g, '$1').trim();
+  // straight quotation marks around the Prophet's words become Arabic quotation marks
+  let depth = 0;
+  t = t.replace(/\s*"\s*/g, (m, at) => {
+    const opens = depth === 0 || /[:،(]\s*$/.test(t.slice(0, at));
+    depth += opens ? 1 : -1;
+    return opens ? ' «' : '» ';
+  });
+  return t.replace(/\s+/g, ' ').replace(/\s+([.،:؟])/g, '$1').replace(/[\s،]+$/, '').trim();
+}
+const nawawi = read('nawawi-ar.json').hadiths.map((h) => ({ n: h.hadithnumber, ar: cleanNawawi(h.hadithnumber, h.text) }));
 if (nawawi.length < 40) throw new Error('Expected the Forty Hadith');
+const nFiles = fs.readdirSync(__dirname).filter((f) => /^nawawi-explain-\d+\.js$/.test(f)).sort();
+const nExplain = Object.assign({}, ...nFiles.map((f) => require('./' + f)));
+for (const h of nawawi) if (nExplain[h.n]) h.x = nExplain[h.n];
+const tFiles = fs.readdirSync(__dirname).filter((f) => /^nawawi-translate-\d+\.js$/.test(f)).sort();
+const nTranslate = Object.assign({}, ...tFiles.map((f) => require('./' + f)));
+for (const h of nawawi) if (nTranslate[h.n]) h.en = nTranslate[h.n];
+const missing = nawawi.filter((h) => !h.en).map((h) => h.n);
+if (missing.length) throw new Error('Forty Hadith without a translation: ' + missing.join(', '));
+console.log(`Forty Hadith explanations: ${nawawi.filter((h) => h.x).length} of ${nawawi.length}`);
 write('discover/nawawi.json', nawawi);
 
 console.log(`Discover: ${hisn.length} Hisn categories (${hisn.reduce((n, c) => n + c.items.length, 0)} adhkar), ${azkar.length} morning/evening adhkar, ${nawawi.length} hadith`);
 
 // ---- Hadith library: Arabic from the classical collections, checked against the curated phrase ----
-const curated = [...require('./hadith-curation'), ...require('./hadith-curation-2'), ...require('./hadith-curation-3')];
+const curationFiles = ['hadith-curation.js', ...fs.readdirSync(__dirname).filter((f) => /^hadith-curation-\d+\.js$/.test(f)).sort()];
+const curated = curationFiles.flatMap((f) => require('./' + f));
 const strip = (s) => s.replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[آأإٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
 const collections = {};
 const collection = (book) => (collections[book] ||= new Map(read(`ara-${book}.json`).hadiths.map((h) => [h.hadithnumber, h.text])));
@@ -77,7 +112,9 @@ function stripMap(s) {
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
     if (/[ً-ٰٟۖ-ۭـ]/.test(ch)) continue;
-    out += strip(ch);
+    if (/[،؛؟.,:;!]/.test(ch)) continue; // punctuation does not take part in matching
+    if (/\s/.test(ch) && (out === '' || out.endsWith(' '))) continue;
+    out += /\s/.test(ch) ? ' ' : strip(ch);
     map.push(i);
   }
   return { out, map };
@@ -85,29 +122,47 @@ function stripMap(s) {
 function matnOf(text, c) {
   if (c.from) {
     const { out, map } = stripMap(text);
-    const a = out.indexOf(strip(c.from));
+    const a = out.indexOf(strip(c.from).replace(/\s+/g, ' '));
     if (a < 0) throw new Error(c.id + ': "from" phrase not found');
-    const toKey = strip(c.to || c.from);
+    const toKey = strip(c.to || c.from).replace(/\s+/g, ' ');
     const z = out.indexOf(toKey, a);
     if (z < 0) throw new Error(c.id + ': "to" phrase not found');
     let end = map[z + toKey.length - 1] + 1;
     while (/[ً-ٰٟۖ-ۭ]/.test(text[end] || '')) end++; // keep the vowel marks on the last letter
     return text.slice(map[a], end).replace(/\s+/g, ' ').trim();
   }
-  const m = text.match(/‏\s*"\s*‏\s*([\s\S]*?)\s*‏?\s*"\s*‏?/);
-  return (m ? m[1] : text).replace(/[‎‏]/g, '').replace(/\s+/g, ' ').replace(/\s*\.\s*$/, '').trim();
+  // the quoted words of the Prophet: the first quotation that holds the expected phrase (a narration can quote more than one speaker)
+  const quotes = [...text.matchAll(/‏\s*"\s*‏\s*([\s\S]*?)\s*‏?\s*"\s*‏?/g)].map((x) => x[1]);
+  const flat = (t) => strip(t).replace(/[،؛؟.,:;!"']/g, ' ').replace(/\s+/g, ' ').trim();
+  const m = quotes.find((q) => flat(q).includes(flat(c.phrase))) ?? quotes[0];
+  return (m ?? text).replace(/[‎‏]/g, '').replace(/\s+/g, ' ').replace(/\s*\.\s*$/, '').trim();
 }
 const seen = new Set();
+const problems = [];
 const hadith = curated.map((c) => {
   if (seen.has(c.id)) throw new Error('duplicate hadith id ' + c.id);
   seen.add(c.id);
   const raw = collection(c.book).get(c.n);
-  if (!raw) throw new Error(`${c.id}: no hadith ${c.n} in ${c.book}`);
-  const matn = matnOf(raw, c);
-  if (!strip(matn).includes(strip(c.phrase))) throw new Error(`${c.id}: Arabic text of ${c.book} ${c.n} does not contain the expected phrase`);
+  if (!raw) { problems.push(`${c.id}: no hadith ${c.n} in ${c.book}`); return { id: c.id, theme: c.theme, title: c.title, en: c.en, src: c.src, ar: '' }; }
+  let matn;
+  try { matn = matnOf(raw, c); } catch (e) { problems.push(e.message); matn = ''; }
+  const norm = (t) => strip(t).replace(/[،؛؟.,:;!"']/g, ' ').replace(/\s+/g, ' ').trim();
+  if (matn && !norm(matn).includes(norm(c.phrase))) problems.push(`${c.id}: Arabic text of ${c.book} ${c.n} does not contain the expected phrase`);
   // the source text carries direction marks and quote marks around the Prophet's words; the app shows plain text
   const tidy = (t) => t.replace(/[‎‏]/g, '').replace(/\s*"\s*/g, ' ').replace(/\s+\./g, '.').replace(/\s+/g, ' ').trim();
   return { id: c.id, theme: c.theme, title: c.title, en: c.en, src: c.src, ar: tidy(matn) };
 });
+if (problems.length) throw new Error(['Hadith that do not match their source:', ...problems].join('\n  '));
+// In-depth explanations (scripts/hadith-explain-N.js): { id: { s: setting[], m: meaning[], l: lessons[] } }
+const explainFiles = fs.readdirSync(__dirname).filter((f) => /^hadith-explain-\d+\.js$/.test(f)).sort();
+const explain = Object.assign({}, ...explainFiles.map((f) => require('./' + f)));
+const known = new Set(hadith.map((h) => h.id));
+for (const id of Object.keys(explain)) if (!known.has(id)) throw new Error('explanation for unknown hadith id: ' + id);
+for (const h of hadith) if (explain[h.id]) h.x = explain[h.id];
+const trFiles = fs.readdirSync(__dirname).filter((f) => /^hadith-translate-\d+\.js$/.test(f)).sort();
+const translate = Object.assign({}, ...trFiles.map((f) => require('./' + f)));
+for (const id of Object.keys(translate)) if (!known.has(id)) throw new Error('translation for unknown hadith id: ' + id);
+for (const h of hadith) if (translate[h.id]) h.en = translate[h.id];
+console.log(`Hadith explanations: ${hadith.filter((h) => h.x).length} of ${hadith.length}`);
 write('discover/hadith.json', hadith);
 console.log(`Hadith library: ${hadith.length} hadith, all matched against their sources`);

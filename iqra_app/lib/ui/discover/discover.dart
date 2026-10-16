@@ -39,7 +39,7 @@ class DiscoverScreen extends StatelessWidget {
                 child: Row(children: [
                   Icon(Icons.search_rounded, color: c.textSecondary),
                   const SizedBox(width: 10),
-                  Text('Stories, hadith, duas, names…', style: TextStyle(color: c.textSecondary, fontSize: 15)),
+                  Expanded(child: Text('Stories, hadith, duas, names…', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.textSecondary, fontSize: 15))),
                 ]),
               ),
             ),

@@ -19,7 +19,34 @@ const kPrayerMethods = <PrayerMethod>[
   PrayerMethod('egypt', 'Egyptian General Authority', 19.5, isha: 17.5),
   PrayerMethod('makkah', 'Umm al-Qura (Makkah)', 18.5, ishaMinutes: 90),
   PrayerMethod('karachi', 'University of Islamic Sciences, Karachi', 18, isha: 18),
+  PrayerMethod('gulf', 'Gulf region', 19.5, ishaMinutes: 90),
+  PrayerMethod('kuwait', 'Kuwait', 18, isha: 17.5),
+  PrayerMethod('qatar', 'Qatar', 18, ishaMinutes: 90),
+  PrayerMethod('dubai', 'Dubai (UAE)', 18.2, isha: 18.2),
+  PrayerMethod('singapore', 'Singapore (MUIS)', 20, isha: 18),
+  PrayerMethod('jakim', 'Malaysia (JAKIM) and Indonesia', 18, isha: 18),
+  PrayerMethod('turkey', 'Turkey (Diyanet)', 18, isha: 17),
+  PrayerMethod('morocco', 'Morocco', 19, isha: 17),
+  PrayerMethod('france', 'France (UOIF)', 12, isha: 12),
 ];
+
+/// The method most people in a country follow, used as the starting choice when a city is picked.
+String methodForCountry(String country) => switch (country) {
+      'Saudi Arabia' => 'makkah',
+      'UAE' => 'dubai',
+      'Kuwait' => 'kuwait',
+      'Qatar' => 'qatar',
+      'Bahrain' || 'Oman' || 'Yemen' => 'gulf',
+      'Egypt' || 'Sudan' || 'Libya' || 'Syria' || 'Lebanon' || 'Iraq' || 'Tunisia' || 'Algeria' => 'egypt',
+      'Pakistan' || 'India' || 'Bangladesh' || 'Afghanistan' => 'karachi',
+      'USA' || 'Canada' => 'isna',
+      'Singapore' => 'singapore',
+      'Malaysia' || 'Indonesia' || 'Brunei' => 'jakim',
+      'Turkey' => 'turkey',
+      'Morocco' => 'morocco',
+      'France' => 'france',
+      _ => 'mwl',
+    };
 
 const kPrayerKeys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const kPrayerNames = {
@@ -69,7 +96,15 @@ double _julian(int y, int m, int d) {
   return (declination: _deg(math.asin(_sin(e) * _sin(l))), equation: q / 15 - ra);
 }
 
+/// "UTC+3" or "UTC-3.5" style zones (used for places entered by hand).
+int? _fixedOffset(String zone) {
+  final m = RegExp(r'^UTC([+-]\d+(?:\.\d+)?)$').firstMatch(zone);
+  return m == null ? null : (double.parse(m.group(1)!) * 60).round();
+}
+
 int tzOffsetMinutes(String zone, DateTime instant) {
+  final fixed = _fixedOffset(zone);
+  if (fixed != null) return fixed;
   try {
     return tz.TZDateTime.from(instant.toUtc(), tz.getLocation(zone)).timeZoneOffset.inMinutes;
   } catch (_) {
@@ -78,6 +113,11 @@ int tzOffsetMinutes(String zone, DateTime instant) {
 }
 
 ({int y, int m, int d}) localDate(String zone, DateTime instant) {
+  final fixed = _fixedOffset(zone);
+  if (fixed != null) {
+    final t = instant.toUtc().add(Duration(minutes: fixed));
+    return (y: t.year, m: t.month, d: t.day);
+  }
   try {
     final t = tz.TZDateTime.from(instant.toUtc(), tz.getLocation(zone));
     return (y: t.year, m: t.month, d: t.day);
@@ -88,7 +128,7 @@ int tzOffsetMinutes(String zone, DateTime instant) {
 }
 
 /// Prayer instants for the civil date at a place. High-latitude cases fall back to a share of the night.
-Map<String, DateTime> prayerTimes(({int y, int m, int d}) date, Place place, {String method = 'mwl', bool hanafi = false}) {
+Map<String, DateTime> prayerTimes(({int y, int m, int d}) date, Place place, {String method = 'mwl', bool hanafi = false, Map<String, int> adjust = const {}}) {
   final m = kPrayerMethods.firstWhere((x) => x.id == method, orElse: () => kPrayerMethods.first);
   final lat = place.lat, lon = place.lon;
   final midnight = DateTime.utc(date.y, date.m, date.d).millisecondsSinceEpoch;
@@ -136,14 +176,8 @@ Map<String, DateTime> prayerTimes(({int y, int m, int d}) date, Place place, {St
     return DateTime.fromMillisecondsSinceEpoch(midnight - offsetMin * 60000 + (hours * 60).round() * 60000, isUtc: true);
   }
 
-  return {
-    'fajr': toInstant(fajr),
-    'sunrise': toInstant(sunrise),
-    'dhuhr': toInstant(dhuhr),
-    'asr': toInstant(asr),
-    'maghrib': toInstant(maghrib),
-    'isha': toInstant(isha),
-  };
+  final base = {'fajr': fajr, 'sunrise': sunrise, 'dhuhr': dhuhr, 'asr': asr, 'maghrib': maghrib, 'isha': isha};
+  return {for (final e in base.entries) e.key: toInstant(e.value).add(Duration(minutes: adjust[e.key] ?? 0))};
 }
 
 double qiblaBearing(double lat, double lon) {
@@ -168,13 +202,13 @@ class NextPrayer {
   final Map<String, DateTime> today;
 }
 
-NextPrayer nextPrayer(Place place, {String method = 'mwl', bool hanafi = false, DateTime? now}) {
+NextPrayer nextPrayer(Place place, {String method = 'mwl', bool hanafi = false, Map<String, int> adjust = const {}, DateTime? now}) {
   final n = (now ?? DateTime.now()).toUtc();
-  final today = prayerTimes(localDate(place.tz, n), place, method: method, hanafi: hanafi);
+  final today = prayerTimes(localDate(place.tz, n), place, method: method, hanafi: hanafi, adjust: adjust);
   for (final k in const ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']) {
     if (today[k]!.isAfter(n)) return NextPrayer(k, today[k]!, today);
   }
-  final tomorrow = prayerTimes(localDate(place.tz, n.add(const Duration(days: 1))), place, method: method, hanafi: hanafi);
+  final tomorrow = prayerTimes(localDate(place.tz, n.add(const Duration(days: 1))), place, method: method, hanafi: hanafi, adjust: adjust);
   return NextPrayer('fajr', tomorrow['fajr']!, today);
 }
 
@@ -186,4 +220,14 @@ String clockText(DateTime instant, Place place, {bool h24 = false}) {
   if (h24) return '${t.hour.toString().padLeft(2, '0')}:$mm';
   final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
   return '$h:$mm ${t.hour < 12 ? 'AM' : 'PM'}';
+}
+
+extension PrayerSettings on AppStore {
+  /// Prayer instants for the saved city on the civil [date] (default: today there), with the chosen method and minute adjustments.
+  Map<String, DateTime> prayersOn([({int y, int m, int d})? date]) {
+    final p = place!;
+    return prayerTimes(date ?? localDate(p.tz, DateTime.now()), p, method: prayerMethod, hanafi: hanafi, adjust: prayerAdjust);
+  }
+
+  NextPrayer upcoming() => nextPrayer(place!, method: prayerMethod, hanafi: hanafi, adjust: prayerAdjust);
 }

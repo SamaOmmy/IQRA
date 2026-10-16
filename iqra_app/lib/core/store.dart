@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'hijri_events.dart';
 import 'quran.dart';
 
 class Place {
@@ -23,7 +24,9 @@ class Bookmark {
 
 /// Everything the person changes: settings, bookmarks, notes, progress. Saved as one JSON document.
 class AppStore extends ChangeNotifier {
-  AppStore._(this._prefs, Map<String, dynamic> j) : _j = j;
+  AppStore._(this._prefs, Map<String, dynamic> j) : _j = j {
+    hijriShiftDays = (j['hadj'] as num?)?.toInt() ?? 0;
+  }
 
   static const _key = 'iqra-flutter-state';
   final SharedPreferences _prefs;
@@ -132,6 +135,10 @@ class AppStore extends ChangeNotifier {
     if (added) days[today] = (days[today] ?? 0) + 1;
     _j['pagesRead'] = set.toList();
     _j['days'] = days;
+    if (_get<Map?>('plan', null) != null) {
+      final pr = Set<int>.from(_get<List>('planRead', const []).cast<int>())..add(page);
+      _j['planRead'] = pr.toList();
+    }
     if (set.length >= 604) {
       _j['khatams'] = khatams + 1;
       _j['pagesRead'] = <int>[];
@@ -164,6 +171,28 @@ class AppStore extends ChangeNotifier {
   set prayerMethod(String v) => _set('pmethod', v);
   bool get hanafi => _get('hanafi', false);
   set hanafi(bool v) => _set('hanafi', v);
+  /// Minutes added to (or taken from) each calculated prayer time, for matching a local timetable.
+  Map<String, int> get prayerAdjust => {for (final e in _get<Map>('padj', const {}).entries) e.key as String: (e.value as num).toInt()};
+  void setPrayerAdjust(String key, int minutes) {
+    final m = prayerAdjust..[key] = minutes.clamp(-30, 30);
+    _set('padj', m);
+  }
+
+  /// Prayers that sound a reminder or the adhan (all five unless switched off).
+  Set<String> get alertPrayers => Set<String>.from(_get<List>('alertp', const ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']));
+  void setAlert(String key, bool on) {
+    final s = alertPrayers;
+    on ? s.add(key) : s.remove(key);
+    _set('alertp', s.toList());
+  }
+
+  /// Hijri date correction in days (the calculated date can differ from your local moon sighting by a day).
+  int get hijriAdjust => _get<num>('hadj', 0).toInt();
+  set hijriAdjust(int v) {
+    hijriShiftDays = v.clamp(-2, 2);
+    _set('hadj', hijriShiftDays);
+  }
+
   bool get clock24 => _get('clock24', false);
   set clock24(bool v) => _set('clock24', v);
   bool get notifyPrayers => _get('notify', false);
@@ -198,9 +227,136 @@ class AppStore extends ChangeNotifier {
   Set<String> get memorised => Set<String>.from(_get<List>('memorised', const []));
   void toggleMemorised(String key) {
     final s = memorised;
-    s.contains(key) ? s.remove(key) : s.add(key);
+    final added = !s.contains(key);
+    added ? s.add(key) : s.remove(key);
+    if (added) {
+      final r = Map<String, dynamic>.from(_get<Map>('review', const {}));
+      final t = DateTime.now();
+      r[key] = {'last': DateTime.utc(t.year, t.month, t.day).millisecondsSinceEpoch ~/ 86400000, 'lvl': 0};
+      _j['review'] = r;
+    }
     _set('memorised', s.toList());
   }
+
+  // ---- listening ----
+  List<int> get recentSurahs => List<int>.from(_get<List>('recentSurahs', const []).cast<int>());
+  void pushRecentSurah(int s) {
+    final l = recentSurahs..remove(s);
+    l.insert(0, s);
+    _set('recentSurahs', l.take(12).toList());
+  }
+
+  // ---- khatam plan ----
+  Map<String, dynamic>? get plan {
+    final p = _get<Map?>('plan', null);
+    return p?.cast<String, dynamic>();
+  }
+
+  void setPlan(DateTime start, int days) {
+    _j['planRead'] = <int>[];
+    _set('plan', {'start': todayKey(start), 'days': days});
+  }
+
+  void clearPlan() {
+    _j['planRead'] = <int>[];
+    _set('plan', null);
+  }
+
+  Set<int> get planRead => Set<int>.from(_get<List>('planRead', const []).cast<int>());
+
+  // ---- stories ----
+  Set<String> get storiesRead => Set<String>.from(_get<List>('storiesRead', const []).cast<String>());
+  void markStoryRead(String id) {
+    final s = storiesRead;
+    if (s.add(id)) _set('storiesRead', s.toList());
+  }
+
+  // ---- window (desktop) ----
+  List<double>? get windowRect {
+    final l = _get<List?>('win', null);
+    return l?.map((e) => (e as num).toDouble()).toList();
+  }
+
+  void saveWindowRect(List<double> r) {
+    _j['win'] = r;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 400), () => _prefs.setString(_key, jsonEncode(_j)));
+  }
+
+  // ---- backup ----
+  static const _backupKeys = [
+    'bookmarks', 'favs', 'notes', 'memorised', 'pagesRead', 'days', 'khatams', 'salah', 'storiesRead', 'plan', 'goal',
+    'tasbihTotal', 'tasbihTarget', 'quizBest', 'recentSurahs', 'theme', 'accent', 'tr1', 'tafsir', 'reciter', 'place', 'pmethod',
+    'hanafi', 'clock24', 'arSize', 'trSize', 'showTr', 'motion', 'review', 'dailyVerseAt', 'translit', 'planRead', 'adhan', 'padj', 'alertp', 'hadj',
+  ];
+
+  String exportBackup() => jsonEncode({'app': 'IQRA', 'version': 1, 'data': {for (final k in _backupKeys) if (_j.containsKey(k)) k: _j[k]}});
+
+  /// Restores a backup made by [exportBackup]. Returns the number of settings restored.
+  int importBackup(String text) {
+    final m = jsonDecode(text);
+    if (m is! Map || m['app'] != 'IQRA' || m['data'] is! Map) throw const FormatException('This is not an IQRA backup.');
+    final data = (m['data'] as Map).cast<String, dynamic>();
+    var n = 0;
+    for (final k in _backupKeys) {
+      if (data.containsKey(k)) {
+        _j[k] = data[k];
+        n++;
+      }
+    }
+    _set('restoredAt', DateTime.now().millisecondsSinceEpoch);
+    return n;
+  }
+
+  // ---- spaced review of memorised verses ----
+  static const _reviewGaps = [1, 3, 7, 14, 30, 60, 120];
+
+  Map<String, dynamic> get _review => Map<String, dynamic>.from(_get<Map>('review', const {}));
+
+  int _epochDay([DateTime? d]) {
+    final t = d ?? DateTime.now();
+    return DateTime.utc(t.year, t.month, t.day).millisecondsSinceEpoch ~/ 86400000;
+  }
+
+  /// Memorised verses whose next review day has come, most overdue first.
+  List<String> dueReviews() {
+    final r = _review;
+    final today = _epochDay();
+    final due = <(String, int)>[];
+    for (final k in memorised) {
+      final e = r[k] as Map?;
+      final last = (e?['last'] as num?)?.toInt() ?? today - 1;
+      final lvl = ((e?['lvl'] as num?)?.toInt() ?? 0).clamp(0, _reviewGaps.length - 1);
+      final over = today - (last + _reviewGaps[lvl]);
+      if (over >= 0) due.add((k, over));
+    }
+    due.sort((a, b) => b.$2.compareTo(a.$2));
+    return [for (final d in due) d.$1];
+  }
+
+  void markReviewed(String key, bool remembered) {
+    final r = _review;
+    final lvl = ((r[key] as Map?)?['lvl'] as num?)?.toInt() ?? 0;
+    r[key] = {'last': _epochDay(), 'lvl': remembered ? (lvl + 1).clamp(0, _reviewGaps.length - 1) : 0};
+    _set('review', r);
+  }
+
+  // ---- adhan ----
+  bool get adhan => _get('adhan', true);
+  set adhan(bool v) => _set('adhan', v);
+
+  // ---- daily verse reminder ----
+  /// minutes after midnight, or -1 for off
+  int get dailyVerseAt => _get('dailyVerseAt', -1);
+  set dailyVerseAt(int v) => _set('dailyVerseAt', v);
+
+  // ---- layout ----
+  bool get sidebarCollapsed => _get('sidebarCollapsed', false);
+  set sidebarCollapsed(bool v) => _set('sidebarCollapsed', v);
+
+  // ---- reading display ----
+  bool get transliteration => _get('translit', false);
+  set transliteration(bool v) => _set('translit', v);
 
   // ---- misc ----
   int get quizBest => _get('quizBest', 0);

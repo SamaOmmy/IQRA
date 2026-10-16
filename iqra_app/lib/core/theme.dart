@@ -152,6 +152,42 @@ const kThemes = <ThemeDef>[
     ),
   ),
   ThemeDef(
+    'dune',
+    'Dune',
+    IqraColors(
+      bg: Color(0xFFFFF9F0), surface: Color(0xFFF6EBD9), surfaceAlt: Color(0xFFEEDCC0), sidebar: Color(0xFFF7ECDA),
+      text: Color(0xFF2E2113), textSecondary: Color(0xFF8A7358), separator: Color(0xFFEBDBC2),
+      accent: Color(0xFFB5651D), onAccent: Colors.white, paper: Color(0xFFFFFCF6), ink: Color(0xFF2E2113), dark: false,
+    ),
+  ),
+  ThemeDef(
+    'sage',
+    'Sage',
+    IqraColors(
+      bg: Color(0xFFF5F7F1), surface: Color(0xFFE8EDDF), surfaceAlt: Color(0xFFDAE2CC), sidebar: Color(0xFFE9EEE0),
+      text: Color(0xFF1F2A17), textSecondary: Color(0xFF69795A), separator: Color(0xFFD7E0C9),
+      accent: Color(0xFF4F7A2B), onAccent: Colors.white, paper: Color(0xFFFAFBF6), ink: Color(0xFF1F2A17), dark: false,
+    ),
+  ),
+  ThemeDef(
+    'amethyst',
+    'Amethyst',
+    IqraColors(
+      bg: Color(0xFF14101F), surface: Color(0xFF1E1830), surfaceAlt: Color(0xFF2A2142), sidebar: Color(0xFF191426),
+      text: Color(0xFFEFE9FF), textSecondary: Color(0xFF9C90BD), separator: Color(0xFF2B2344),
+      accent: Color(0xFFB18CFF), onAccent: Color(0xFF1A0B38), paper: Color(0xFF171222), ink: Color(0xFFEAE4F8), dark: true,
+    ),
+  ),
+  ThemeDef(
+    'ember',
+    'Ember',
+    IqraColors(
+      bg: Color(0xFF17110E), surface: Color(0xFF241915), surfaceAlt: Color(0xFF33231C), sidebar: Color(0xFF1C1411),
+      text: Color(0xFFF6EDE6), textSecondary: Color(0xFFA38C7C), separator: Color(0xFF35261F),
+      accent: Color(0xFFFF9A5A), onAccent: Color(0xFF2C1203), paper: Color(0xFF1A1310), ink: Color(0xFFF0E6DB), dark: true,
+    ),
+  ),
+  ThemeDef(
     'black',
     'Black',
     IqraColors(
@@ -184,6 +220,7 @@ const kAccents = <(String, Color?)>[
 ThemeData buildTheme(IqraColors c) {
   final base = ThemeData(
     useMaterial3: true,
+    fontFamily: 'Inter',
     brightness: c.dark ? Brightness.dark : Brightness.light,
     colorScheme: ColorScheme.fromSeed(seedColor: c.accent, brightness: c.dark ? Brightness.dark : Brightness.light).copyWith(
       primary: c.accent,
@@ -202,11 +239,32 @@ ThemeData buildTheme(IqraColors c) {
     iconTheme: IconThemeData(color: c.text),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.windows: IqraPageTransitions(),
+      TargetPlatform.linux: IqraPageTransitions(),
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
     }),
     extensions: [c],
   );
+}
+
+/// Opening a page: the new page slides in a short way while it fades up, and the page beneath drifts back and dims a little.
+class IqraPageTransitions extends PageTransitionsBuilder {
+  const IqraPageTransitions();
+
+  @override
+  Widget buildTransitions<T>(PageRoute<T> route, BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+    final enter = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+    final under = CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+    return SlideTransition(
+      position: Tween(begin: const Offset(0.07, 0), end: Offset.zero).animate(enter),
+      child: FadeTransition(
+        opacity: enter,
+        child: SlideTransition(
+          position: Tween(begin: Offset.zero, end: const Offset(-0.035, 0)).animate(under),
+          child: FadeTransition(opacity: Tween(begin: 1.0, end: 0.9).animate(under), child: child),
+        ),
+      ),
+    );
+  }
 }

@@ -158,8 +158,12 @@ class Quran {
   /// The authentic glyph string of every word on the page (same order as [pageWords]), or null.
   List<String>? pageGlyphs(int p) => _qcf == null ? null : (_qcf![p - 1] as List).cast<String>();
 
+  Future<List<dynamic>>? _wordsLoad;
+
   Future<List<WbwWord>> wordsOf(int s, int a) async {
-    _words ??= await _json('assets/data/words.json') as List;
+    // one shared load: many verses ask at once
+    _wordsLoad ??= _json('assets/data/words.json').then((v) => v as List<dynamic>);
+    _words ??= await _wordsLoad;
     final list = (_words![s - 1] as List)[a - 1] as List;
     return [for (final w in list) WbwWord(w[0], w[1], w[2])];
   }

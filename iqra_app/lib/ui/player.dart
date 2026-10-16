@@ -10,6 +10,7 @@ import '../core/quran.dart';
 import '../core/store.dart';
 import '../core/theme.dart';
 import '../core/translation.dart';
+import 'live_verse.dart';
 import 'reader.dart';
 import 'window_controls.dart';
 import 'widgets.dart';
@@ -226,7 +227,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                 IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 34, color: Colors.white)),
                 Expanded(
                   child: Column(children: [
-                    Text('NOW PLAYING', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
+                    Text(audio.queueTitle != null ? 'PLAYLIST · ${audio.queueTitle!.toUpperCase()}' : (audio.scope == PlayScope.range ? 'LOOPING ${audio.rangeFrom}–${audio.rangeTo}' : 'NOW PLAYING'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
                     Text(reciterName(store.reciter), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
                   ]),
                 ),
@@ -274,10 +275,7 @@ class _VerseCard extends StatelessWidget {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Text('$surahName · ${ayah.surah}:${ayah.n}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
       const SizedBox(height: 14),
-      Directionality(
-        textDirection: TextDirection.rtl,
-        child: Text(ayah.ar, textAlign: TextAlign.center, style: const TextStyle(fontFamily: kArabicFont, fontSize: 30, height: 1.9, color: Colors.white)),
-      ),
+      LiveVerse(ayah: ayah, fontSize: 30, color: Colors.white, activeColor: const Color(0xFFFFE9A8)),
       if (translation.isNotEmpty) ...[
         const SizedBox(height: 10),
         Text(translation, textAlign: TextAlign.center, maxLines: 6, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.78), fontSize: 15.5, height: 1.45)),
@@ -320,7 +318,7 @@ class _Lyrics extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Column(children: [
-                      Directionality(textDirection: TextDirection.rtl, child: Text(a.ar, textAlign: TextAlign.center, style: const TextStyle(fontFamily: kArabicFont, fontSize: 32, height: 1.9, color: Colors.white))),
+                      LiveVerse(ayah: a, fontSize: 32, color: Colors.white, activeColor: const Color(0xFFFFE9A8)),
                       if (store.showTranslation) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr.text(a), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4))),
                     ]),
                   ),
@@ -363,6 +361,7 @@ class _Controls extends StatelessWidget {
         ]),
       ),
       Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+        IconButton(onPressed: audio.previousSurah, tooltip: 'Previous surah', icon: const Icon(Icons.fast_rewind_rounded, size: 30, color: white)),
         IconButton(onPressed: audio.previous, icon: const Icon(Icons.skip_previous_rounded, size: 42, color: white)),
         Container(
           width: 74,
@@ -373,6 +372,7 @@ class _Controls extends StatelessWidget {
               : IconButton(onPressed: audio.toggle, icon: Icon(audio.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 42, color: Colors.black87)),
         ),
         IconButton(onPressed: audio.next, icon: const Icon(Icons.skip_next_rounded, size: 42, color: white)),
+        IconButton(onPressed: audio.nextSurah, tooltip: 'Next surah', icon: const Icon(Icons.fast_forward_rounded, size: 30, color: white)),
       ]),
       const SizedBox(height: 4),
       Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [

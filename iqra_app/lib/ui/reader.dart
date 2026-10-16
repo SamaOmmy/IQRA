@@ -12,7 +12,10 @@ import '../core/store.dart';
 import '../core/theme.dart';
 import '../core/translation.dart';
 import 'mushaf.dart';
+import 'live_verse.dart';
+import 'share_card.dart';
 import 'study.dart';
+import 'word_grid.dart';
 import 'widgets.dart';
 
 Future<void> openReader(BuildContext context, {required int surah, int ayah = 1, int? page, bool? mushaf}) {
@@ -122,12 +125,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
-  void _tapVerse(int s, int a, int page) {
+  VerseRef? _panel; // the verse shown in the side panel (wide windows)
+
+  bool get _dock => MediaQuery.of(context).size.width >= 1240;
+
+  /// A verse was chosen: on wide windows it opens in the side panel, elsewhere in a sheet.
+  void _openVerse(int s, int a, int page) {
     setState(() => _selected = VerseRef(s, a));
+    if (_dock) {
+      setState(() => _panel = VerseRef(s, a));
+      return;
+    }
     showVerseSheet(context, s, a, page: page).then((_) {
       if (mounted) setState(() => _selected = null);
     });
   }
+
+  void _tapVerse(int s, int a, int page) => _openVerse(s, a, page);
 
   KeyEventResult _onKey(FocusNode n, KeyEvent e) {
     if (e is! KeyDownEvent || !_mushaf) return KeyEventResult.ignored;
@@ -161,7 +175,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
           Positioned.fill(
             child: Padding(
               padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56),
-              child: _mushaf ? _buildMushaf(store, audio) : _buildVerses(store, audio),
+              child: Row(children: [
+                Expanded(child: _mushaf ? _buildMushaf(store, audio) : _buildVerses(store, audio)),
+                if (_dock && _panel != null)
+                  _SidePanel(
+                    key: ValueKey('panel-${_panel!.key}'),
+                    ref: _panel!,
+                    onClose: () => setState(() {
+                      _panel = null;
+                      _selected = null;
+                    }),
+                  ),
+              ]),
             ),
           ),
           Positioned(
@@ -179,13 +204,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     const SizedBox(width: 6),
                     IconButton(onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20)),
                     Expanded(
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _mushaf ? _askPage : null,
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Text(sr.en, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, letterSpacing: -0.2)),
                         Text(_mushaf ? 'Page $_page · Juz ${Quran.I.ayah(Quran.I.pageWords(_page).first.surah, Quran.I.pageWords(_page).first.ayah).juz}' : '${sr.meaning} · ${sr.ayahs.length} verses',
                             style: TextStyle(fontSize: 12, color: c.textSecondary)),
-                      ]),
+                        ]),
+                      ),
                     ),
-                    Segmented(items: const ['Mushaf', 'Verses'], index: _mushaf ? 0 : 1, onChanged: (i) => _switchMode(i == 0)),
+                    if (MediaQuery.of(context).size.width < 520)
+                      IconButton(
+                        onPressed: () => _switchMode(!_mushaf),
+                        tooltip: _mushaf ? 'Verse by verse' : 'Mushaf pages',
+                        icon: Icon(_mushaf ? Icons.view_agenda_outlined : Icons.menu_book_rounded),
+                      )
+                    else
+                      Segmented(items: const ['Mushaf', 'Verses'], index: _mushaf ? 0 : 1, onChanged: (i) => _switchMode(i == 0)),
                     const SizedBox(width: 6),
                     IconButton(
                       onPressed: () {
@@ -204,6 +240,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
           ),
         ]),
+      ),
+    );
+  }
+
+  void _askPage() {
+    final ctl = TextEditingController(text: '$_page');
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Go to page'),
+        content: TextField(controller: ctl, autofocus: true, keyboardType: TextInputType.number, decoration: const InputDecoration(hintText: '1 – 604'), onSubmitted: (_) {
+          final p = int.tryParse(ctl.text.trim());
+          Navigator.pop(ctx);
+          if (p != null && p >= 1 && p <= 604) _goToPage(p, animate: false);
+        }),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final p = int.tryParse(ctl.text.trim());
+              Navigator.pop(ctx);
+              if (p != null && p >= 1 && p <= 604) _goToPage(p, animate: false);
+            },
+            child: const Text('Go'),
+          ),
+        ],
       ),
     );
   }
@@ -345,11 +407,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
               playing: audio.current != null && audio.current!.s == ay.surah && audio.current!.a == ay.n,
               selected: _selected != null && _selected!.s == ay.surah && _selected!.a == ay.n,
               onTap: () {
-                setState(() => _selected = VerseRef(ay.surah, ay.n));
                 store.setLast(ay.surah, ay.n, ay.page);
-                showVerseSheet(context, ay.surah, ay.n).then((_) {
-                  if (mounted) setState(() => _selected = null);
-                });
+                _openVerse(ay.surah, ay.n, ay.page);
               },
               onPlay: () => audio.playVerse(ay.surah, ay.n, scope: PlayScope.surah),
             );
@@ -389,6 +448,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       title: const Text('Show translation'),
                       value: store.showTranslation,
                       onChanged: (v) => store.showTranslation = v,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Word by word'),
+                      subtitle: const Text('Meaning and transliteration under every word'),
+                      value: store.wordByWord,
+                      onChanged: (v) => store.wordByWord = v,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Transliteration'),
+                      subtitle: const Text('Read the verse in Latin letters'),
+                      value: store.transliteration,
+                      onChanged: (v) => store.transliteration = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -439,6 +512,7 @@ class _VerseTileState extends State<_VerseTile> {
         ),
         child: Pressable(
           onTap: widget.onTap,
+          onSecondaryTap: widget.onTap,
           radius: 18,
           scale: 0.99,
           child: Padding(
@@ -476,10 +550,13 @@ class _VerseTileState extends State<_VerseTile> {
                             decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(12)),
                             child: Text('Tap to reveal', style: TextStyle(color: c.textSecondary)),
                           )
-                        : Text(ay.ar, key: const ValueKey('shown'), style: TextStyle(fontFamily: kArabicFont, fontSize: store.arabicSize, height: 1.95, color: c.text)),
+                        : (store.wordByWord
+                            ? WordGrid(key: const ValueKey('wbw'), ayah: ay, fontSize: store.arabicSize)
+                            : LiveVerse(key: const ValueKey('shown'), ayah: ay, fontSize: store.arabicSize, height: 1.95, align: WrapAlignment.start)),
                   ),
                 ),
               ),
+              if (store.transliteration && !hidden) Transliteration(ayah: ay),
               if (widget.translation.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(widget.translation, style: TextStyle(fontSize: store.translationSize, height: 1.5, color: c.textSecondary)),
@@ -488,6 +565,50 @@ class _VerseTileState extends State<_VerseTile> {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// The study panel docked beside the reader on wide windows: actions on top, then translation, words, tafsir and notes.
+class _SidePanel extends StatelessWidget {
+  const _SidePanel({super.key, required this.ref, required this.onClose});
+  final VerseRef ref;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final store = context.watch<AppStore>();
+    final audio = context.read<AudioController>();
+    final key = ref.key;
+    Widget act(IconData icon, String tip, VoidCallback onTap, {bool on = false}) => IconButton(
+          tooltip: tip,
+          onPressed: onTap,
+          icon: Icon(icon, size: 22, color: on ? c.accent : c.text),
+        );
+    return Container(
+      width: 400,
+      decoration: BoxDecoration(color: c.bg, border: Border(left: BorderSide(color: c.separator, width: 0.8))),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 4, 0),
+          child: Row(children: [
+            act(Icons.play_arrow_rounded, 'Play from here', () => audio.playVerse(ref.s, ref.a, scope: PlayScope.continuous)),
+            act(Icons.loop_rounded, 'Loop a range', () => showLoopDialog(context, ref.s, ref.a)),
+            act(store.isBookmarked(ref.s, ref.a) ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, 'Bookmark', () => store.toggleBookmark(ref.s, ref.a), on: store.isBookmarked(ref.s, ref.a)),
+            act(store.isFav(key) ? Icons.favorite_rounded : Icons.favorite_border_rounded, 'Favourite', () => store.toggleFav(key), on: store.isFav(key)),
+            act(store.memorised.contains(key) ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded, 'Memorised', () => store.toggleMemorised(key), on: store.memorised.contains(key)),
+            act(Icons.image_rounded, 'Share as image', () {
+              final a = Quran.I.ayah(ref.s, ref.a);
+              showShareCard(context, arabic: a.ar, translation: context.read<TranslationModel>().text(a), reference: '${Quran.I.surah(ref.s).en} $key');
+            }),
+            const Spacer(),
+            IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded)),
+          ]),
+        ),
+        Expanded(child: StudyPanel(s: ref.s, a: ref.a)),
+      ]),
     );
   }
 }

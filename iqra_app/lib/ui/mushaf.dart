@@ -75,8 +75,12 @@ class _MushafPageState extends State<MushafPage> {
 
   bool get _qcf => _glyphs != null && _fontReady;
 
+  // a printed page keeps its own proportions: system font scaling must not change the measured line widths
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling), child: Builder(builder: _pageBody));
+
+  Widget _pageBody(BuildContext context) {
     final c = context.c;
     final rows = widget.page <= 2 ? 8 : 15;
     final first = _words.first;

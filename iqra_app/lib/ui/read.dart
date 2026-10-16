@@ -22,7 +22,6 @@ class _ReadScreenState extends State<ReadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.c;
     final store = context.watch<AppStore>();
     final surahs = [
       for (final s in Quran.I.surahs)
@@ -46,37 +45,26 @@ class _ReadScreenState extends State<ReadScreen> {
           ),
         ),
         if (_tab == 0)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 190, mainAxisSpacing: 18, crossAxisSpacing: 16, childAspectRatio: 0.78),
-              itemCount: surahs.length,
-              itemBuilder: (context, i) {
-                final s = surahs[i];
-                return Reveal(
-                  index: i % 12,
-                  child: Pressable(
-                    onTap: () => openReader(context, surah: s.n, mushaf: false),
-                    onLongPress: () => context.read<AudioController>().playVerse(s.n, 1, scope: PlayScope.surah),
-                    radius: 14,
-                    hover: false,
-                    scale: 0.96,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      LayoutBuilder(builder: (_, b) => SurahArt(surah: s.n, size: b.maxWidth)),
-                      const SizedBox(height: 9),
-                      Text(s.en, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
-                      Text('${s.meaning} · ${s.ayahs.length}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
-                    ]),
-                  ),
-                );
-              },
-            ),
+          TileGrid(
+            count: surahs.length,
+            builder: (context, i) {
+              final s = surahs[i];
+              return Reveal(
+                index: i % 12,
+                child: ArtTile(
+                  surah: s.n,
+                  onOpen: () => openReader(context, surah: s.n, mushaf: false),
+                  onPlay: () => context.read<AudioController>().playVerse(s.n, 1, scope: PlayScope.surah),
+                  onMore: () => openReader(context, surah: s.n, mushaf: true),
+                ),
+              );
+            },
           )
         else if (_tab == 1)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 260, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 1.9),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 260, mainAxisSpacing: 14, crossAxisSpacing: 14, mainAxisExtent: 96),
               itemCount: 30,
               itemBuilder: (context, i) {
                 final juz = i + 1;
