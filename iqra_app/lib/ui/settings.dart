@@ -104,6 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _pickReciter(context),
             ),
             SwitchListTile(title: const Text('Continue to the next surah'), value: s.continuous, onChanged: (v) => s.continuous = v),
+            SwitchListTile(title: const Text('Play surahs as one connected recording'), subtitle: const Text('No pauses between verses, as the reciter delivered it. Needs an internet connection; reciters without a full recording, and repeating a verse, use the verse files.'), value: s.wholeSurah, onChanged: (v) => s.wholeSurah = v),
             ListTile(title: const Text('Downloads'), subtitle: const Text('Recitations and tafsir for offline use'), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => push(const DownloadsScreen())),
           ]),
         ),
@@ -201,14 +202,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: group('About', [
             ListTile(title: const Text('IQRA'), subtitle: Text('Version ${up.current.isEmpty ? '…' : up.current} · free and open source (MIT)')),
             ListTile(
-              title: const Text('Check for updates'),
-              subtitle: Text(up.checking ? 'Checking…' : (up.message ?? 'See if a newer version is available')),
-              trailing: const Icon(Icons.refresh_rounded),
-              onTap: up.checking
+              title: Text(up.available ? 'Update to ${up.latest}' : 'Check for updates'),
+              subtitle: Text(up.downloading ? (up.installMessage ?? 'Downloading…') : (up.checking ? 'Checking…' : (up.installMessage ?? up.message ?? 'See if a newer version is available'))),
+              trailing: up.downloading ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, value: up.progress == 0 ? null : up.progress)) : Icon(up.available ? Icons.system_update_alt_rounded : Icons.refresh_rounded),
+              onTap: up.checking || up.downloading
                   ? null
                   : () async {
-                      await up.check(announce: true);
-                      if (up.available && up.url != null) await launchUrl(Uri.parse(up.url!));
+                      if (up.available) {
+                        await up.install();
+                      } else {
+                        await up.check(announce: true);
+                      }
                     },
             ),
             ListTile(title: const Text('Source code and licences'), subtitle: const Text('github.com/SamaOmmy/IQRA'), trailing: const Icon(Icons.open_in_new_rounded), onTap: () => launchUrl(Uri.parse('https://github.com/$kRepo'))),

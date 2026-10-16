@@ -45,7 +45,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell> with WindowListener, SingleTickerProviderStateMixin {
+class AppShellState extends State<AppShell> with WindowListener, SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static AppShellState? current;
   BuildContext? get navContext => _keys[_section]!.currentState?.overlay?.context;
   late final AppStore _store;
@@ -56,6 +56,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
   void initState() {
     super.initState();
     current = this;
+    WidgetsBinding.instance.addObserver(this);
     _store = context.read<AppStore>();
     // people who already use the app skip the welcome
     if (!_store.seenWelcome) {
@@ -75,8 +76,15 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     });
   }
 
+  // look for an update again when the app comes back to the front
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) context.read<UpdateChecker>().checkIfStale();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _store.removeListener(_syncNotifications);
     _fade.dispose();
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) windowManager.removeListener(this);

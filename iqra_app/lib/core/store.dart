@@ -287,7 +287,7 @@ class AppStore extends ChangeNotifier {
   static const _backupKeys = [
     'bookmarks', 'favs', 'notes', 'memorised', 'pagesRead', 'days', 'khatams', 'salah', 'storiesRead', 'plan', 'goal',
     'tasbihTotal', 'tasbihTarget', 'quizBest', 'recentSurahs', 'theme', 'accent', 'tr1', 'tafsir', 'reciter', 'place', 'pmethod',
-    'hanafi', 'clock24', 'arSize', 'trSize', 'showTr', 'motion', 'review', 'dailyVerseAt', 'translit', 'planRead', 'adhan', 'padj', 'alertp', 'hadj',
+    'hanafi', 'clock24', 'arSize', 'trSize', 'showTr', 'motion', 'review', 'dailyVerseAt', 'translit', 'planRead', 'adhan', 'padj', 'alertp', 'hadj', 'whole',
   ];
 
   String exportBackup() => jsonEncode({'app': 'IQRA', 'version': 1, 'data': {for (final k in _backupKeys) if (_j.containsKey(k)) k: _j[k]}});
@@ -342,6 +342,9 @@ class AppStore extends ChangeNotifier {
   }
 
   // ---- adhan ----
+  /// Play a surah as one connected recording where the reciter has one (otherwise verse by verse).
+  bool get wholeSurah => _get('whole', true);
+  set wholeSurah(bool v) => _set('whole', v);
   bool get adhan => _get('adhan', true);
   set adhan(bool v) => _set('adhan', v);
 

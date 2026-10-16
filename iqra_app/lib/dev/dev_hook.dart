@@ -74,8 +74,15 @@ class DevHook {
         if (ctx != null) Navigator.of(ctx).push(WidgetsPageRoute(ShelfScreen(id: p[1])));
       case 'play':
         if (ctx != null) await ctx.read<AudioController>().playVerse(int.parse(p[1]), int.parse(p[2]));
+      case 'status':
+        if (ctx != null) {
+          final au = ctx.read<AudioController>();
+          debugPrint('DEV audio: ${au.current?.s}:${au.current?.a} connected=${au.connected} playing=${au.playing} loading=${au.loading} pos=${au.position} dur=${au.duration} err=${au.error}');
+        }
+      case 'seekverse':
+        if (ctx != null) await ctx.read<AudioController>().playVerse(int.parse(p[1]), int.parse(p[2]), scope: PlayScope.continuous);
       case 'now':
-        if (ctx != null) await showNowPlaying(ctx);
+        if (ctx != null) unawaited(showNowPlaying(ctx));
       case 'size':
         await windowManager.setSize(Size(double.parse(p[1]), double.parse(p[2])));
         await Future<void>.delayed(const Duration(milliseconds: 600));

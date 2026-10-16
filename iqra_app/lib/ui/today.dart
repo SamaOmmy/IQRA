@@ -5,7 +5,6 @@ import 'package:hijri/hijri_calendar.dart';
 import 'package:provider/provider.dart';
 
 import '../core/audio.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/content.dart';
 import '../core/hijri_events.dart';
@@ -404,23 +403,32 @@ class _UpdateBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final u = context.watch<UpdateChecker>();
     final c = context.c;
-    if (!u.available || u.url == null) return const SizedBox.shrink();
+    if (!u.available) return const SizedBox.shrink();
+    final busy = u.downloading;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-      child: Pressable(
-        onTap: () => launchUrl(Uri.parse(u.url!)),
-        radius: 16,
-        hover: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          decoration: BoxDecoration(color: c.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(16), border: Border.all(color: c.accent.withValues(alpha: 0.4))),
-          child: Row(children: [
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 13, 12, 13),
+        decoration: BoxDecoration(color: c.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(16), border: Border.all(color: c.accent.withValues(alpha: 0.4))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
             Icon(Icons.system_update_alt_rounded, color: c.accent),
             const SizedBox(width: 12),
-            Expanded(child: Text('IQRA ${u.latest} is available. Tap to download.', style: const TextStyle(fontWeight: FontWeight.w700))),
-            Icon(Icons.open_in_new_rounded, size: 18, color: c.accent),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('IQRA ${u.latest} is available', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                Text(u.installMessage ?? 'You have ${u.current}. Update now to get the newest features.', style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.35)),
+              ]),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: busy ? null : () => u.install(),
+              style: FilledButton.styleFrom(backgroundColor: c.accent, foregroundColor: c.onAccent, shape: const StadiumBorder()),
+              child: Text(busy ? '${(u.progress * 100).round()}%' : (u.canInstallHere ? 'Update' : 'Download')),
+            ),
           ]),
-        ),
+          if (busy) Padding(padding: const EdgeInsets.only(top: 10), child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: u.progress == 0 ? null : u.progress, minHeight: 5, color: c.accent, backgroundColor: c.accent.withValues(alpha: 0.2)))),
+        ]),
       ),
     );
   }

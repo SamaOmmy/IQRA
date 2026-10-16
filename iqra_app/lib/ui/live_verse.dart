@@ -80,7 +80,8 @@ class _LiveVerseState extends State<LiveVerse> {
       final cur = au.current;
       final isCurrent = cur != null && cur.s == a.surah && cur.a == a.n && (au.playing || au.progress > 0);
       if (!isCurrent || _words == null || _words!.isEmpty) return -1;
-      return currentWordIndex(_weights, au.progress);
+      final exact = au.exactWord(a.surah, a.n); // the reciter's own word timing, when the recording has it
+      return exact >= 0 ? math.min(exact, _words!.length - 1) : currentWordIndex(_weights, au.progress);
     });
     if (idx < 0) {
       return Directionality(textDirection: TextDirection.rtl, child: Text(a.ar, textAlign: widget.align == WrapAlignment.center ? TextAlign.center : TextAlign.start, style: style));

@@ -1,9 +1,12 @@
 import 'dart:io' show Platform;
-import 'dart:ui' show FontFeature;
+import 'dart:math' as math;
+import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../core/audio.dart';
 import '../core/quran.dart';
@@ -178,9 +181,52 @@ class NowPlayingScreen extends StatefulWidget {
 }
 
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
-  bool _lyrics = false;
+  bool _lyrics = false; // phones: show the verses instead of the artwork
+  bool _lyricsWide = true; // PCs: the verses sit beside the artwork, like synced lyrics
+  bool _full = false;
   final _items = ItemScrollController();
+  final _focus = FocusNode();
   int _lastShown = -1;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    if (_full && !Platform.isAndroid) windowManager.setFullScreen(false);
+    super.dispose();
+  }
+
+  Future<void> _toggleFull() async {
+    if (Platform.isAndroid) return;
+    _full = !_full;
+    await windowManager.setFullScreen(_full);
+    if (mounted) setState(() {});
+  }
+
+  KeyEventResult _key(FocusNode n, KeyEvent e, AudioController audio) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.escape) {
+      Navigator.of(context).maybePop();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.space) {
+      audio.toggle();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowRight || k == LogicalKeyboardKey.arrowDown) {
+      audio.next();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowLeft || k == LogicalKeyboardKey.arrowUp) {
+      audio.previous();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.keyF) {
+      _toggleFull();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -196,69 +242,108 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final ay = Quran.I.ayah(v.s, v.a);
     final tr = context.watch<TranslationModel>();
     final (g1, g2) = artColors(v.s * 5 + 2);
-    final wide = MediaQuery.of(context).size.width > 820;
+    final size = MediaQuery.of(context).size;
+    final wide = size.width > 900;
+    final showLyrics = wide ? _lyricsWide : _lyrics;
 
-    if (_lyrics && _lastShown != v.a && _items.isAttached) {
+    if (showLyrics && _lastShown != v.a && _items.isAttached) {
       _lastShown = v.a;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_items.isAttached) _items.scrollTo(index: v.a - 1, duration: const Duration(milliseconds: 500), curve: Curves.easeOutCubic, alignment: 0.3);
+        if (_items.isAttached) _items.scrollTo(index: v.a - 1, duration: const Duration(milliseconds: 600), curve: Curves.easeOutCubic, alignment: wide ? 0.36 : 0.3);
       });
     }
 
     final controls = _Controls(audio: audio, store: store);
-    final artwork = Hero(tag: 'art', child: SurahArt(surah: v.s, size: wide ? 360 : 300, radius: 24));
+    final art = (size.height - 470).clamp(220.0, 380.0);
+    final artwork = Hero(tag: 'art', child: SurahArt(surah: v.s, size: wide ? art : 300, radius: 24));
     final text = _VerseCard(ayah: ay, translation: tr.text(ay), surahName: sr.en);
+    final lyricsView = _Lyrics(key: const ValueKey('l'), surah: v.s, current: v.a, controller: _items, tr: tr, store: store, big: wide, onPick: (a) => audio.playVerse(v.s, a, scope: audio.scope));
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color.lerp(g1, Colors.black, c.dark ? 0.45 : 0.1)!, Color.lerp(g2, Colors.black, c.dark ? 0.7 : 0.35)!],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(children: [
-                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 34, color: Colors.white)),
-                Expanded(
-                  child: Column(children: [
-                    Text(audio.queueTitle != null ? 'PLAYLIST · ${audio.queueTitle!.toUpperCase()}' : (audio.scope == PlayScope.range ? 'LOOPING ${audio.rangeFrom}–${audio.rangeTo}' : 'NOW PLAYING'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
-                    Text(reciterName(store.reciter), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-                IconButton(
-                  onPressed: () => setState(() => _lyrics = !_lyrics),
-                  icon: Icon(_lyrics ? Icons.format_quote_rounded : Icons.format_align_center_rounded, color: Colors.white),
-                  tooltip: 'Follow along',
-                ),
-                if (Platform.isWindows) const WindowButtons(color: Colors.white),
+    Widget body;
+    if (wide) {
+      body = Row(children: [
+        SizedBox(
+          width: math.min(480, size.width * 0.4),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(36, 8, 24, 8),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                artwork,
+                const SizedBox(height: 20),
+                Text(sr.en, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                const SizedBox(height: 2),
+                Text('${sr.meaning} · verse ${v.a} of ${sr.ayahs.length}', style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 14)),
+                const SizedBox(height: 14),
+                controls,
               ]),
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 320),
-                child: _lyrics
-                    ? _Lyrics(key: const ValueKey('l'), surah: v.s, current: v.a, controller: _items, tr: tr, store: store, onPick: (a) => audio.playVerse(v.s, a, scope: audio.scope))
-                    : (wide
-                        ? Row(key: const ValueKey('w'), mainAxisAlignment: MainAxisAlignment.center, children: [
-                            artwork,
-                            const SizedBox(width: 56),
-                            Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: text)),
-                          ])
-                        : SingleChildScrollView(
-                            key: const ValueKey('n'),
-                            padding: const EdgeInsets.fromLTRB(24, 10, 24, 10),
-                            child: Column(children: [artwork, const SizedBox(height: 22), text]),
-                          )),
-              ),
+          ),
+        ),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            child: showLyrics ? lyricsView : Center(key: const ValueKey('t'), child: Padding(padding: const EdgeInsets.all(40), child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 620), child: text))),
+          ),
+        ),
+      ]);
+    } else {
+      body = Column(children: [
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            child: showLyrics
+                ? lyricsView
+                : SingleChildScrollView(
+                    key: const ValueKey('n'),
+                    padding: const EdgeInsets.fromLTRB(24, 10, 24, 10),
+                    child: Column(children: [artwork, const SizedBox(height: 22), text]),
+                  ),
+          ),
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(26, 0, 26, 14), child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 620), child: controls)),
+      ]);
+    }
+
+    return Focus(
+      focusNode: _focus,
+      autofocus: true,
+      onKeyEvent: (n, e) => _key(n, e, audio),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: AnimatedContainer(
+          duration: const Duration(milliseconds: 700),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color.lerp(g1, Colors.black, c.dark ? 0.45 : 0.1)!, Color.lerp(g2, Colors.black, c.dark ? 0.72 : 0.4)!],
             ),
-            Padding(padding: const EdgeInsets.fromLTRB(26, 0, 26, 14), child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 620), child: controls)),
-          ]),
+          ),
+          child: SafeArea(
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(children: [
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 34, color: Colors.white)),
+                  Expanded(
+                    child: Column(children: [
+                      Text(audio.queueTitle != null ? 'PLAYLIST · ${audio.queueTitle!.toUpperCase()}' : (audio.scope == PlayScope.range ? 'LOOPING ${audio.rangeFrom}–${audio.rangeTo}' : 'NOW PLAYING'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
+                      Text(reciterName(store.reciter), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                  IconButton(
+                    onPressed: () => setState(() => wide ? _lyricsWide = !_lyricsWide : _lyrics = !_lyrics),
+                    icon: Icon(showLyrics ? Icons.lyrics_rounded : Icons.lyrics_outlined, color: Colors.white),
+                    tooltip: showLyrics ? 'Hide the verses' : 'Follow the verses',
+                  ),
+                  if (!Platform.isAndroid)
+                    IconButton(onPressed: _toggleFull, icon: Icon(_full ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: Colors.white), tooltip: _full ? 'Leave full screen (F)' : 'Full screen (F)'),
+                  if (Platform.isWindows && !_full) const WindowButtons(color: Colors.white),
+                ]),
+              ),
+              Expanded(child: body),
+            ]),
+          ),
         ),
       ),
     );
@@ -285,47 +370,62 @@ class _VerseCard extends StatelessWidget {
 }
 
 class _Lyrics extends StatelessWidget {
-  const _Lyrics({super.key, required this.surah, required this.current, required this.controller, required this.tr, required this.store, required this.onPick});
+  const _Lyrics({super.key, required this.surah, required this.current, required this.controller, required this.tr, required this.store, required this.onPick, this.big = false});
   final int surah, current;
   final ItemScrollController controller;
   final TranslationModel tr;
   final AppStore store;
   final ValueChanged<int> onPick;
+  final bool big;
 
   @override
   Widget build(BuildContext context) {
     final sr = Quran.I.surah(surah);
+    final motion = store.motion;
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
-        child: ScrollablePositionedList.builder(
-          itemScrollController: controller,
-          initialScrollIndex: current - 1,
-          initialAlignment: 0.3,
-          itemCount: sr.ayahs.length,
-          padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 20),
-          itemBuilder: (_, i) {
-            final a = sr.ayahs[i];
-            final on = a.n == current;
-            return GestureDetector(
-              onTap: () => onPick(a.n),
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: on ? 1 : 0.42,
-                child: AnimatedScale(
-                  duration: const Duration(milliseconds: 300),
-                  scale: on ? 1 : 0.94,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Column(children: [
-                      LiveVerse(ayah: a, fontSize: 32, color: Colors.white, activeColor: const Color(0xFFFFE9A8)),
-                      if (store.showTranslation) Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr.text(a), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4))),
-                    ]),
+        constraints: BoxConstraints(maxWidth: big ? 760 : 680),
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (r) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent], stops: [0, 0.1, 0.9, 1]).createShader(r),
+          child: ScrollablePositionedList.builder(
+            itemScrollController: controller,
+            initialScrollIndex: current - 1,
+            initialAlignment: big ? 0.36 : 0.3,
+            itemCount: sr.ayahs.length,
+            padding: EdgeInsets.symmetric(vertical: big ? 160 : 80, horizontal: 24),
+            itemBuilder: (_, i) {
+              final a = sr.ayahs[i];
+              final on = a.n == current;
+              Widget line = Padding(
+                padding: EdgeInsets.symmetric(vertical: big ? 18 : 14),
+                child: Column(children: [
+                  LiveVerse(ayah: a, fontSize: big ? 40 : 32, color: Colors.white, activeColor: const Color(0xFFFFE9A8), dimmed: on),
+                  if (store.showTranslation) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr.text(a), textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: on ? 0.95 : 0.8), fontSize: big ? 17 : 15, height: 1.45))),
+                ]),
+              );
+              if (motion) {
+                line = TweenAnimationBuilder<double>(
+                  tween: Tween(end: on ? 0 : 2.2),
+                  duration: const Duration(milliseconds: 350),
+                  builder: (_, sigma, child) => sigma < 0.05 ? child! : ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal), child: child),
+                  child: line,
+                );
+              }
+              return MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onPick(a.n),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 350),
+                    opacity: on ? 1 : 0.4,
+                    child: AnimatedScale(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic, scale: on ? 1 : 0.92, child: line),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

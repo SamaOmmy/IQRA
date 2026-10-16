@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
@@ -6,19 +7,34 @@ import 'package:media_kit/media_kit.dart';
 import 'audio_cache.dart';
 import 'quran.dart';
 import 'store.dart';
+import 'surah_track.dart';
 
 enum PlayScope { verse, surah, continuous, page, queue, range }
 
-/// Verse-by-verse recitation. Each verse is downloaded once from everyayah.com into the app's folder, then played from disk.
+/// Recitation. Where the reciter has a whole-surah recording the surah plays as one connected piece, as the reciter delivered it,
+/// with the current verse found from its timings. Otherwise each verse is downloaded once from everyayah.com and played from disk.
 class AudioController extends ChangeNotifier {
   AudioController(this.store) {
     player = Player();
     player.setRate(store.speed);
     _subs.add(player.stream.position.listen((p) {
-      position = p;
+      final t = _track, c = current;
+      if (t != null && c != null) {
+        _rawMs = p.inMilliseconds;
+        final v = t.verseAt(_rawMs);
+        if (v != c.a) {
+          current = VerseRef(c.s, v);
+          store.setLast(c.s, v, Quran.I.ayah(c.s, v).page);
+        }
+        position = Duration(milliseconds: math.max(0, _rawMs - t.from[v - 1]));
+        duration = Duration(milliseconds: t.to[v - 1] - t.from[v - 1]);
+      } else {
+        position = p;
+      }
       notifyListeners();
     }));
     _subs.add(player.stream.duration.listen((d) {
+      if (_track != null) return; // the verse's own length is shown instead
       duration = d;
       notifyListeners();
     }));
@@ -59,6 +75,19 @@ class AudioController extends ChangeNotifier {
   DateTime? sleepAt;
   int _token = 0;
 
+  /// the whole-surah recording being played (null when verses are played one by one)
+  SurahTrack? _track;
+  String? _trackReciter;
+  int _rawMs = 0;
+  bool get connected => _track != null;
+
+  /// Index of the word being recited in this verse, from the reciter's own timing, or -1 when only an estimate is possible.
+  int exactWord(int surah, int ayah) {
+    final t = _track, c = current;
+    if (t == null || c == null || c.s != surah || c.a != ayah) return -1;
+    return t.wordAt(ayah, _rawMs);
+  }
+
   bool get active => current != null;
   Ayah? get ayah => current == null ? null : Quran.I.ayah(current!.s, current!.a);
   double get progress => duration.inMilliseconds == 0 ? 0 : (position.inMilliseconds / duration.inMilliseconds).clamp(0, 1).toDouble();
@@ -71,6 +100,8 @@ class AudioController extends ChangeNotifier {
     }
     pageScope = page;
     final token = ++_token;
+    final lt = _track;
+    if (lt != null && (lt.surah != s || _trackReciter != store.reciter)) _track = null; // old positions must not be read against a new surah
     final previous = current;
     current = VerseRef(s, a);
     error = null;
@@ -81,6 +112,12 @@ class AudioController extends ChangeNotifier {
     notifyListeners();
     store.setLast(s, a, Quran.I.ayah(s, a).page);
     if (previous == null || previous.s != s) store.pushRecentSurah(s);
+    final wantTrack = store.wholeSurah && repeatEach <= 1 && (this.scope == PlayScope.continuous || this.scope == PlayScope.surah || this.scope == PlayScope.queue);
+    if (wantTrack) {
+      if (await _playTrack(s, a, token)) return;
+      if (token != _token) return;
+    }
+    _track = null;
     try {
       final path = await AudioCache.ensure(store.reciter, s, a);
       if (token != _token) return;
@@ -95,6 +132,35 @@ class AudioController extends ChangeNotifier {
       playing = false;
       error = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
+    }
+  }
+
+  /// Plays from verse [a] inside the whole-surah recording. Returns false when that is not possible (then verses are played one by one).
+  Future<bool> _playTrack(int s, int a, int token) async {
+    try {
+      var t = _track;
+      final same = t != null && t.surah == s && _trackReciter == store.reciter;
+      if (!same) {
+        t = await SurahTrack.load(store.reciter, s);
+        if (token != _token) return true;
+        if (t == null || t.verses != Quran.I.surah(s).ayahs.length) return false;
+        _track = null; // positions of the previous recording must not be read as this one's
+        await player.open(Media(t.url), play: false);
+        if (token != _token) return true;
+        await player.stream.duration.firstWhere((d) => d > Duration.zero).timeout(const Duration(seconds: 15));
+        if (token != _token) return true;
+        _track = t;
+        _trackReciter = store.reciter;
+      }
+      await player.seek(Duration(milliseconds: a <= 1 ? 0 : t.from[a - 1]));
+      await player.setRate(store.speed);
+      await player.play();
+      loading = false;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _track = null;
+      return false;
     }
   }
 
@@ -157,6 +223,19 @@ class AudioController extends ChangeNotifier {
   Future<void> _onCompleted() async {
     final c = current;
     if (c == null) return;
+    if (_track != null) {
+      // the recording ended: carry on with the next surah if the mode says so
+      final last = VerseRef(c.s, _track!.verses);
+      final nx = _after(last);
+      _track = null;
+      if (nx != null) {
+        await playVerse(nx.s, nx.a);
+      } else {
+        playing = false;
+        notifyListeners();
+      }
+      return;
+    }
     if (_repeatDone + 1 < repeatEach) {
       _repeatDone++;
       await player.seek(Duration.zero);
@@ -175,6 +254,11 @@ class AudioController extends ChangeNotifier {
   Future<void> next() async {
     final c = current;
     if (c == null) return;
+    final t = _track;
+    if (t != null && c.a < t.verses) {
+      await player.seek(Duration(milliseconds: t.from[c.a]));
+      return;
+    }
     if (scope == PlayScope.queue) {
       final nx = Quran.I.next(c.s, c.a);
       if (nx != null && nx.s == c.s) {
@@ -192,6 +276,15 @@ class AudioController extends ChangeNotifier {
   Future<void> previous() async {
     final c = current;
     if (c == null) return;
+    final t = _track;
+    if (t != null) {
+      if (position > const Duration(seconds: 3) || c.a <= 1) {
+        await player.seek(Duration(milliseconds: c.a <= 1 ? 0 : t.from[c.a - 1]));
+        return;
+      }
+      await player.seek(Duration(milliseconds: t.from[c.a - 2]));
+      return;
+    }
     if (position > const Duration(seconds: 3)) {
       await player.seek(Duration.zero);
       return;
@@ -232,7 +325,11 @@ class AudioController extends ChangeNotifier {
     }
   }
 
-  Future<void> seekFraction(double f) => player.seek(Duration(milliseconds: (duration.inMilliseconds * f).round()));
+  Future<void> seekFraction(double f) {
+    final t = _track, c = current;
+    if (t != null && c != null) return player.seek(Duration(milliseconds: t.from[c.a - 1] + ((t.to[c.a - 1] - t.from[c.a - 1]) * f).round()));
+    return player.seek(Duration(milliseconds: (duration.inMilliseconds * f).round()));
+  }
 
   Future<void> setSpeed(double v) async {
     store.speed = v;
@@ -243,10 +340,14 @@ class AudioController extends ChangeNotifier {
   void setRepeat(int n) {
     repeatEach = n;
     notifyListeners();
+    // repeating one verse needs the verse recordings
+    final c = current;
+    if (n > 1 && _track != null && c != null) playVerse(c.s, c.a);
   }
 
   Future<void> stop() async {
     _token++;
+    _track = null;
     await player.stop();
     current = null;
     playing = false;
