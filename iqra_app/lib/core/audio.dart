@@ -18,11 +18,13 @@ class AudioController extends ChangeNotifier {
     player = Player();
     player.setRate(store.speed);
     _subs.add(player.stream.position.listen((p) {
+      var verseChanged = false;
       final t = _track, c = current;
       if (t != null && c != null) {
         _rawMs = p.inMilliseconds;
         final v = t.verseAt(_rawMs);
         if (v != c.a) {
+          verseChanged = true;
           current = VerseRef(c.s, v);
           store.setLast(c.s, v, Quran.I.ayah(c.s, v).page);
         }
@@ -34,7 +36,10 @@ class AudioController extends ChangeNotifier {
       _clock
         ..reset()
         ..start();
-      notifyListeners();
+      // the position arrives about ten times a second: only the progress bars follow it (see [tick]); the rest of the app is told
+      // when the verse changes
+      if (verseChanged) notifyListeners();
+      tick.value++;
     }));
     _subs.add(player.stream.duration.listen((d) {
       if (_track != null) return; // the verse's own length is shown instead
@@ -83,6 +88,9 @@ class AudioController extends ChangeNotifier {
   String? _trackReciter;
   int _rawMs = 0;
   bool get connected => _track != null;
+
+  /// Changes with every position update; progress bars and clocks listen to this instead of the whole controller.
+  final ValueNotifier<int> tick = ValueNotifier(0);
 
   final Stopwatch _clock = Stopwatch();
 

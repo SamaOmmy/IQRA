@@ -4,6 +4,7 @@ import android.content.Intent
 import android.hardware.GeomagneticField
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -13,6 +14,27 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : AudioServiceActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Ask for the screen's fastest refresh rate (90 / 120 Hz phones otherwise often stay at 60), at the same resolution.
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                @Suppress("DEPRECATION")
+                val display = windowManager.defaultDisplay
+                val current = display.mode
+                val best = display.supportedModes
+                    .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+                    .maxByOrNull { it.refreshRate }
+                if (best != null && best.refreshRate > current.refreshRate + 1f) {
+                    val lp = window.attributes
+                    lp.preferredDisplayModeId = best.modeId
+                    window.attributes = lp
+                }
+            }
+        } catch (_: Throwable) {
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // The call to prayer: alarms that start the adhan service (see Adhan.kt).

@@ -7,6 +7,7 @@ import '../core/quran.dart';
 import '../core/store.dart';
 import '../core/theme.dart';
 import 'tools/city_picker.dart';
+import 'gradients.dart';
 import 'widgets.dart';
 
 /// A short first-run setup: city (for prayer times), theme and translation.
@@ -91,12 +92,14 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
                 ]),
                 const SizedBox(height: 34),
                 if (_step == 0) ...[
-                  Container(
+                  GradientBox(
                     width: 74,
                     height: 74,
-                    decoration: BoxDecoration(gradient: LinearGradient(colors: [c.accent, c.accent.withValues(alpha: 0.7)]), borderRadius: BorderRadius.circular(20)),
-                    alignment: Alignment.center,
-                    child: Text('ق', style: TextStyle(fontFamily: kArabicFont, fontSize: 48, color: c.onAccent, height: 1.2)),
+                    colors: [c.accent, c.accent.withValues(alpha: 0.7)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    radius: 20,
+                    child: Center(child: Text('ق', style: TextStyle(fontFamily: kArabicFont, fontSize: 48, color: c.onAccent, height: 1.2))),
                   ),
                   const SizedBox(height: 22),
                 ],

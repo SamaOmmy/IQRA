@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../core/store.dart';
 import '../core/theme.dart';
 import '../core/updates.dart';
 import 'discover/discover.dart';
+import 'gradients.dart';
 import 'library.dart';
 import 'listen.dart';
 import 'welcome.dart';
@@ -73,6 +75,9 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     _store.addListener(_syncNotifications);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PrayerNotifier.init().then((_) => _syncNotifications());
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        if (mounted && !_showWelcome) _warm();
+      });
       Future<void>.delayed(const Duration(seconds: 4), () {
         if (mounted) context.read<UpdateChecker>().check();
       });
@@ -90,6 +95,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     WidgetsBinding.instance.removeObserver(this);
     _store.removeListener(_syncNotifications);
     _fade.dispose();
+    _warmTimer?.cancel();
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) windowManager.removeListener(this);
     super.dispose();
   }
@@ -119,6 +125,22 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
   final _visited = <Section>{Section.today};
 
   late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
+  Timer? _warmTimer;
+
+  /// Builds the other sections one at a time while the app is idle, so opening one later does not have to build it while it
+  /// animates in (that first build is what made opening a page stutter).
+  void _warm() {
+    const order = [Section.read, Section.listen, Section.discover, Section.library, Section.tools, Section.search, Section.settings];
+    var i = 0;
+    _warmTimer = Timer.periodic(const Duration(milliseconds: 900), (t) {
+      if (!mounted || i >= order.length) {
+        t.cancel();
+        return;
+      }
+      final s = order[i++];
+      if (!_visited.contains(s)) setState(() => _visited.add(s));
+    });
+  }
 
   void go(Section s) {
     if (s == _section) {
@@ -160,7 +182,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     final curve = CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic);
     return FadeTransition(
       opacity: curve,
-      child: SlideTransition(position: Tween(begin: const Offset(0, 0.012), end: Offset.zero).animate(curve), child: stack),
+      child: SlideTransition(position: Tween(begin: const Offset(0, 0.012), end: Offset.zero).animate(curve), child: RepaintBoundary(child: stack)),
     );
   }
 
@@ -339,12 +361,14 @@ class _Sidebar extends StatelessWidget {
       );
     }
 
-    final logo = Container(
+    final logo = GradientBox(
       width: 30,
       height: 30,
-      decoration: BoxDecoration(gradient: LinearGradient(colors: [c.accent, c.accent.withValues(alpha: 0.7)]), borderRadius: BorderRadius.circular(8)),
-      alignment: Alignment.center,
-      child: Text('ق', style: TextStyle(fontFamily: kArabicFont, fontSize: 20, color: c.onAccent, height: 1.1)),
+      colors: [c.accent, c.accent.withValues(alpha: 0.7)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      radius: 8,
+      child: Center(child: Text('ق', style: TextStyle(fontFamily: kArabicFont, fontSize: 20, color: c.onAccent, height: 1.1))),
     );
 
     return AnimatedContainer(

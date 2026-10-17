@@ -86,16 +86,19 @@ class _LiveVerseState extends State<LiveVerse> with SingleTickerProviderStateMix
     final base = widget.color ?? c.text;
     final active = widget.activeColor ?? c.accent;
     final style = TextStyle(fontFamily: kArabicFont, fontSize: widget.fontSize, height: widget.height, color: base);
-    // the frame clock runs only while this verse is the one being recited
-    final live = context.select<AudioController, bool>((au) {
+    // 0 not this verse, 1 this verse paused part-way, 2 this verse being recited. The frame clock runs only in the last case.
+    final state = context.select<AudioController, int>((au) {
       final cur = au.current;
-      return cur != null && cur.s == a.surah && cur.a == a.n && (au.playing || au.progress > 0);
+      if (cur == null || cur.s != a.surah || cur.a != a.n) return 0;
+      if (au.playing) return 2;
+      return au.progress > 0 ? 1 : 0;
     });
-    if (live && !_ticker.isActive) {
+    final live = state > 0;
+    if (state == 2 && !_ticker.isActive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_ticker.isActive) _ticker.start();
       });
-    } else if (!live && _ticker.isActive) {
+    } else if (state != 2 && _ticker.isActive) {
       _ticker.stop();
     }
     if (!live || _words == null || _words!.isEmpty) {

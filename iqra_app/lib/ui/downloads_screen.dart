@@ -53,7 +53,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
           margin: const EdgeInsets.fromLTRB(20, 8, 20, 8),
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+          child: Material(type: MaterialType.transparency, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children)),
         );
 
     final fullSurahs = [for (final s in Quran.I.surahs) if ((_cached[s.n] ?? 0) >= s.ayahs.length) s.n];

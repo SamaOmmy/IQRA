@@ -25,6 +25,7 @@ import 'downloads_screen.dart';
 import 'tools/prayer_screen.dart';
 import 'tools/qibla_screen.dart';
 import 'tools/tools.dart';
+import 'gradients.dart';
 import 'widgets.dart';
 
 int dayIndex([DateTime? d]) {
@@ -174,11 +175,11 @@ class _ContinueCard extends StatelessWidget {
         height: 190,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [c1, c2]),
           boxShadow: [BoxShadow(color: c1.withValues(alpha: 0.35), blurRadius: 26, offset: const Offset(0, 12))],
         ),
-        padding: const EdgeInsets.all(22),
         child: Stack(children: [
+          Positioned.fill(child: CustomPaint(painter: GradientPainter.linear([c1, c2], radius: 24))),
+          Padding(padding: const EdgeInsets.all(22), child: Stack(children: [
           Positioned(
             right: 0,
             top: 0,
@@ -201,6 +202,7 @@ class _ContinueCard extends StatelessWidget {
               Text('or tap to read', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13.5)),
             ]),
           ]),
+          ])),
         ]),
       ),
     );

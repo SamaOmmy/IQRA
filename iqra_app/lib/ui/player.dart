@@ -10,6 +10,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/audio.dart';
+import '../core/perf.dart';
 import '../core/quran.dart';
 import '../core/store.dart';
 import '../core/theme.dart';
@@ -18,6 +19,7 @@ import 'live_verse.dart';
 import 'reader.dart';
 import 'share_card.dart';
 import 'window_controls.dart';
+import 'gradients.dart';
 import 'widgets.dart';
 
 String _fmt(Duration d) {
@@ -75,7 +77,7 @@ class MiniPlayer extends StatelessWidget {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: LinearProgressIndicator(value: audio.progress, minHeight: 2.5, backgroundColor: Colors.transparent, color: c.accent),
+                        child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => LinearProgressIndicator(value: audio.progress, minHeight: 2.5, backgroundColor: Colors.transparent, color: c.accent)),
                       ),
                     ]),
                   ),
@@ -151,9 +153,9 @@ class DesktopNowPlaying extends StatelessWidget {
                             style: TextStyle(color: audio.error != null ? Colors.redAccent : c.textSecondary, fontSize: 13, fontFamily: audio.error != null ? null : kArabicFont)),
                       ]),
                     ),
-                    Padding(padding: const EdgeInsets.only(right: 12), child: Text(_fmt(audio.position), style: TextStyle(color: c.textSecondary, fontSize: 12, fontFeatures: const [FontFeature.tabularFigures()]))),
+                    Padding(padding: const EdgeInsets.only(right: 12), child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => Text(_fmt(audio.position), style: TextStyle(color: c.textSecondary, fontSize: 12, fontFeatures: const [FontFeature.tabularFigures()])))),
                   ]),
-                  Positioned(left: 0, right: 0, bottom: 0, child: LinearProgressIndicator(value: audio.progress, minHeight: 2.5, backgroundColor: Colors.transparent, color: c.accent)),
+                  Positioned(left: 0, right: 0, bottom: 0, child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => LinearProgressIndicator(value: audio.progress, minHeight: 2.5, backgroundColor: Colors.transparent, color: c.accent))),
                 ]),
         ),
       ),
@@ -337,15 +339,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
       onKeyEvent: (n, e) => _key(n, e, audio),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: AnimatedContainer(
-          duration: const Duration(milliseconds: 700),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color.lerp(g1, Colors.black, c.dark ? 0.45 : 0.1)!, Color.lerp(g2, Colors.black, c.dark ? 0.72 : 0.4)!],
-            ),
-          ),
+        body: CustomPaint(
+          painter: GradientPainter.linear([Color.lerp(g1, Colors.black, c.dark ? 0.45 : 0.1)!, Color.lerp(g2, Colors.black, c.dark ? 0.72 : 0.4)!]),
           child: SafeArea(
             child: Column(children: [
               Padding(
@@ -562,7 +557,7 @@ class _LyricsState extends State<_Lyrics> with SingleTickerProviderStateMixin {
                   ]),
                 ),
               );
-              if (motion) {
+              if (motion && !Perf.light) {
                 line = TweenAnimationBuilder<double>(
                   tween: Tween(end: (on || widget.selecting) ? 0 : 2.2),
                   duration: const Duration(milliseconds: 350),
@@ -622,14 +617,17 @@ class _Controls extends StatelessWidget {
           inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
           thumbColor: white,
         ),
-        child: Slider(value: audio.progress.clamp(0, 1), onChanged: audio.active ? audio.seekFraction : null),
+        child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => Slider(value: audio.progress.clamp(0, 1), onChanged: audio.active ? audio.seekFraction : null)),
       ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(_fmt(audio.position), style: TextStyle(color: dim, fontSize: 12)),
-          Text('-${_fmt(audio.duration - audio.position)}', style: TextStyle(color: dim, fontSize: 12)),
-        ]),
+        child: ValueListenableBuilder<int>(
+          valueListenable: audio.tick,
+          builder: (_, __, ___) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(_fmt(audio.position), style: TextStyle(color: dim, fontSize: 12)),
+            Text('-${_fmt(audio.duration - audio.position)}', style: TextStyle(color: dim, fontSize: 12)),
+          ]),
+        ),
       ),
       Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
         IconButton(onPressed: audio.previousSurah, tooltip: 'Previous surah', icon: const Icon(Icons.fast_rewind_rounded, size: 30, color: white)),

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/content.dart';
@@ -38,11 +39,14 @@ import 'package:provider/provider.dart';
 ///   shot <name>       -> iqra-<name>.png in the temp folder
 ///   back
 class DevHook {
+  // ignore: unused_field
   static Timer? _t;
+  static final List<ui.FrameTiming> _frames = [];
   static final ValueNotifier<double> textScale = ValueNotifier(1.0);
 
   static void start(GlobalKey repaintKey) {
-    if (!kDebugMode) return;
+    if (!kDebugMode && !kProfileMode) return;
+    SchedulerBinding.instance.addTimingsCallback((t) => _frames.addAll(t));
     final dir = Directory.systemTemp.path;
     final cmd = File('$dir${Platform.pathSeparator}iqra-dev.cmd');
     _t = Timer.periodic(const Duration(milliseconds: 600), (_) async {
@@ -91,6 +95,33 @@ class DevHook {
           GestureBinding.instance.handlePointerEvent(PointerScrollEvent(position: pos, scrollDelta: Offset(0, double.parse(p[3]))));
           await Future<void>.delayed(const Duration(milliseconds: 700));
         }
+      case 'perf':
+        {
+          if (p[1] == 'reset') {
+            _frames.clear();
+          } else {
+            // perf report <label>: how the frames since the last reset went (profile builds give real numbers)
+            final ms = [for (final f in _frames) f.totalSpan.inMicroseconds / 1000]..sort();
+            final build = [for (final f in _frames) f.buildDuration.inMicroseconds / 1000]..sort();
+            final raster = [for (final f in _frames) f.rasterDuration.inMicroseconds / 1000]..sort();
+            double pct(List<double> l, double q) => l.isEmpty ? 0 : l[((l.length - 1) * q).round()];
+            final over = ms.where((m) => m > 16.7).length, over33 = ms.where((m) => m > 33.4).length;
+            final out = 'frames=${ms.length} total avg=${ms.isEmpty ? 0 : (ms.reduce((a, b) => a + b) / ms.length).toStringAsFixed(1)} p90=${pct(ms, .9).toStringAsFixed(1)} p99=${pct(ms, .99).toStringAsFixed(1)} max=${pct(ms, 1).toStringAsFixed(1)} | build p90=${pct(build, .9).toStringAsFixed(1)} max=${pct(build, 1).toStringAsFixed(1)} | raster p90=${pct(raster, .9).toStringAsFixed(1)} max=${pct(raster, 1).toStringAsFixed(1)} | >16.7ms: $over  >33ms: $over33';
+            File('$dir${Platform.pathSeparator}iqra-perf-${p.length > 2 ? p[2] : 'x'}.txt').writeAsStringSync(out);
+          }
+        }
+      case 'fling':
+        {
+          // fling x y step count: a run of mouse-wheel notches 16 ms apart
+          final pos = Offset(double.parse(p[1]), double.parse(p[2]));
+          for (var i = 0; i < int.parse(p[4]); i++) {
+            GestureBinding.instance.handlePointerEvent(PointerScrollEvent(position: pos, scrollDelta: Offset(0, double.parse(p[3]))));
+            await Future<void>.delayed(const Duration(milliseconds: 30));
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      case 'bg':
+        await windowManager.setBackgroundColor(Color(int.parse(p[1], radix: 16)));
       case 'flip':
         ReaderDebug.flip(int.parse(p[1]), int.parse(p[2]));
       case 'wait':

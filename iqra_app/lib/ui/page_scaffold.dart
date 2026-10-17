@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 import 'settings.dart';
+import 'smooth_scroll.dart';
 import 'shell.dart';
 import 'widgets.dart';
 
 /// A scrolling page with a large title that collapses into a frosted bar: the Apple Music screen pattern.
-class LargePage extends StatelessWidget {
+class LargePage extends StatefulWidget {
   const LargePage({super.key, required this.title, required this.slivers, this.subtitle, this.actions = const [], this.leading, this.bottomPadding = 150, this.maxWidth = 1100, this.controller});
 
   final String title;
@@ -20,7 +21,23 @@ class LargePage extends StatelessWidget {
   final ScrollController? controller;
 
   @override
+  State<LargePage> createState() => _LargePageState();
+}
+
+class _LargePageState extends State<LargePage> {
+  SmoothScrollController? _own;
+  ScrollController get _controller => widget.controller ?? (_own ??= SmoothScrollController());
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.title, subtitle = widget.subtitle, actions = widget.actions, leading = widget.leading;
+    final slivers = widget.slivers, bottomPadding = widget.bottomPadding, maxWidth = widget.maxWidth;
     final c = context.c;
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
@@ -29,7 +46,7 @@ class LargePage extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxWidth),
           child: CustomScrollView(
-            controller: controller,
+            controller: _controller,
             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             slivers: [
               SliverPersistentHeader(

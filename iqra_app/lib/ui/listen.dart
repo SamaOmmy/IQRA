@@ -8,6 +8,7 @@ import '../core/store.dart';
 import '../core/theme.dart';
 import 'page_scaffold.dart';
 import 'reader.dart';
+import 'gradients.dart';
 import 'widgets.dart';
 
 class _Playlist {
@@ -236,12 +237,13 @@ class _ReciterChip extends StatelessWidget {
             height: 86,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [a, b]),
               border: Border.all(color: selected ? c.accent : Colors.transparent, width: 3),
               boxShadow: [BoxShadow(color: a.withValues(alpha: 0.3), blurRadius: 14, offset: const Offset(0, 6))],
             ),
-            alignment: Alignment.center,
-            child: selected ? const Icon(Icons.check_rounded, color: Colors.white, size: 36) : Text(_initials, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+            child: Stack(alignment: Alignment.center, children: [
+              Positioned.fill(child: CustomPaint(painter: GradientPainter.linear([a, b], radius: 40))),
+              selected ? const Icon(Icons.check_rounded, color: Colors.white, size: 36) : Text(_initials, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+            ]),
           ),
           const SizedBox(height: 8),
           Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: selected ? c.accent : c.text, height: 1.2)),

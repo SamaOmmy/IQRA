@@ -1,15 +1,19 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../core/quran.dart';
 import '../core/theme.dart';
+import 'gradients.dart';
 import 'widgets.dart';
 
 /// Loads the authentic per-page mushaf fonts on demand (only present in builds that include them).
 class MushafFonts {
   static final Map<int, Future<bool>> _loads = {};
+  static final Set<int> loaded = {};
 
   static Future<bool> ensure(int page) {
     if (!Quran.I.hasQcf) return Future.value(false);
@@ -18,6 +22,7 @@ class MushafFonts {
         final data = rootBundle.load('assets/fonts/mushaf/p$page.ttf');
         final loader = FontLoader('QCF_p$page')..addFont(data);
         await loader.load();
+        loaded.add(page);
         return true;
       } catch (_) {
         return false;
@@ -36,6 +41,30 @@ class MushafPage extends StatefulWidget {
   final VerseRef? playing, selected;
   final double fontScale;
 
+  static final Map<String, double> _widest = {};
+
+  /// Gets a page ready before it is needed: loads its font and measures it, so that turning to it costs nothing.
+  static Future<void> prepare(int page) async {
+    final glyphs = Quran.I.pageGlyphs(page);
+    final qcf = glyphs != null && await MushafFonts.ensure(page);
+    final key = '$page|$qcf';
+    if (_widest.containsKey(key)) return;
+    final words = Quran.I.pageWords(page);
+    final family = qcf ? 'QCF_p$page' : kArabicFont;
+    final lines = <int, double>{};
+    final gap = qcf ? 0.0 : 14.0;
+    for (var i = 0; i < words.length; i++) {
+      final tp = TextPainter(text: TextSpan(text: qcf ? glyphs[i] : words[i].text, style: TextStyle(fontFamily: family, fontSize: 100, height: 1.0)), textDirection: TextDirection.rtl)..layout();
+      lines.update(words[i].line, (v) => v + tp.width + gap, ifAbsent: () => tp.width);
+      tp.dispose();
+    }
+    var widest = 1.0;
+    for (final v in lines.values) {
+      if (v - gap > widest) widest = v - gap;
+    }
+    _widest[key] = widest;
+  }
+
   @override
   State<MushafPage> createState() => _MushafPageState();
 }
@@ -44,7 +73,6 @@ class _MushafPageState extends State<MushafPage> {
   late List<PageWord> _words;
   List<String>? _glyphs;
   bool _fontReady = false;
-  final Map<String, double> _sizeMemo = {};
 
   @override
   void initState() {
@@ -61,14 +89,10 @@ class _MushafPageState extends State<MushafPage> {
   void _load() {
     _words = Quran.I.pageWords(widget.page);
     _glyphs = Quran.I.pageGlyphs(widget.page);
-    _fontReady = false;
-    _sizeMemo.clear();
-    if (_glyphs != null) {
+    _fontReady = MushafFonts.loaded.contains(widget.page);
+    if (_glyphs != null && !_fontReady) {
       MushafFonts.ensure(widget.page).then((ok) {
-        if (mounted) setState(() {
-          _fontReady = ok;
-          _sizeMemo.clear();
-        });
+        if (mounted) setState(() => _fontReady = ok);
       });
     }
   }
@@ -119,17 +143,18 @@ class _MushafPageState extends State<MushafPage> {
         return total + (idx.length - 1) * (_qcf ? 0 : size * 0.14);
       }
 
-      final memoKey = '${_qcf}_${innerW.round()}_${rowH.round()}';
-      var base = _sizeMemo[memoKey];
-      if (base == null) {
-        var widest = 1.0;
+      // the widest line at a fixed size: the same whatever the window, so it is measured once per page and kept
+      final widestKey = '${widget.page}|$_qcf';
+      double widest = MushafPage._widest[widestKey] ?? 0;
+      if (widest == 0) {
+        widest = 1.0;
         for (final idx in lines.values) {
           final n = natural(idx, 100);
           if (n > widest) widest = n;
         }
-        base = (0.985 * 100 * innerW / widest).clamp(8.0, rowH * (_qcf ? 0.95 : 0.78));
-        _sizeMemo[memoKey] = base;
+        MushafPage._widest[widestKey] = widest;
       }
+      final base = (0.985 * 100 * innerW / widest).clamp(8.0, rowH * (_qcf ? 0.95 : 0.78));
       final size = base * widget.fontScale.clamp(0.6, 1.0);
 
       final sortedKeys = lines.keys.toList()..sort();
@@ -153,19 +178,20 @@ class _MushafPageState extends State<MushafPage> {
         final idx = lines[ln]!;
         final last = _words[idx.last];
         final endsSurah = last.isEnd && last.ayah == Quran.I.surah(last.surah).ayahs.length;
-        final centered = widget.page <= 2 || (endsSurah && natural(idx, size) < innerW * 0.85);
-        final children = <Widget>[
-          for (final i in idx) _word(context, i, family, size),
-        ];
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: Row(
-            mainAxisAlignment: centered ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: centered
-                ? [for (var k = 0; k < children.length; k++) ...[if (k > 0) SizedBox(width: _qcf ? 0 : size * 0.14), children[k]]]
-                : children,
-          ),
+        return _MushafLine(
+          words: [
+            for (final i in idx) _LineWord(_qcf ? _glyphs![i] : _words[i].text, _words[i].surah, _words[i].ayah, !_qcf && _words[i].isEnd),
+          ],
+          marks: [for (final i in idx) _mark(_words[i])],
+          family: family,
+          size: size,
+          gap: _qcf ? 0 : size * 0.14,
+          mode: widget.page <= 2 ? 1 : (endsSurah ? 2 : 0), // 0 justified, 1 centred, 2 centred when short
+          ink: c.ink,
+          accent: c.accent,
+          playingColor: c.accent.withValues(alpha: 0.22),
+          selectedColor: c.accent.withValues(alpha: 0.12),
+          onTap: widget.onVerseTap == null ? null : (s, a) => widget.onVerseTap!(s, a, widget.page),
         );
       }
 
@@ -200,29 +226,185 @@ class _MushafPageState extends State<MushafPage> {
     });
   }
 
-  Widget _word(BuildContext context, int i, String family, double size) {
-    final c = context.c;
-    final w = _words[i];
-    final isPlaying = widget.playing != null && widget.playing!.s == w.surah && widget.playing!.a == w.ayah;
-    final isSel = widget.selected != null && widget.selected!.s == w.surah && widget.selected!.a == w.ayah;
-    final hl = isPlaying ? c.accent.withValues(alpha: 0.22) : (isSel ? c.accent.withValues(alpha: 0.12) : Colors.transparent);
-    var text = _qcf ? _glyphs![i] : w.text;
-    final style = TextStyle(
-      fontFamily: family,
-      fontSize: size,
-      height: 1.0,
-      color: (!_qcf && w.isEnd) ? c.accent : c.ink,
-    );
-    if (!_qcf && w.isEnd) text = w.text; // the verse number marker
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onVerseTap == null ? null : () => widget.onVerseTap!(w.surah, w.ayah, widget.page),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        decoration: BoxDecoration(color: hl, borderRadius: BorderRadius.circular(5)),
-        child: Text(text, textDirection: TextDirection.rtl, style: style),
-      ),
-    );
+  /// 0 plain, 1 the chosen verse, 2 the verse being recited
+  int _mark(PageWord w) {
+    final p = widget.playing, sel = widget.selected;
+    if (p != null && p.s == w.surah && p.a == w.ayah) return 2;
+    if (sel != null && sel.s == w.surah && sel.a == w.ayah) return 1;
+    return 0;
+  }
+}
+
+class _LineWord {
+  const _LineWord(this.text, this.surah, this.ayah, this.marker);
+  final String text;
+  final int surah, ayah;
+  final bool marker; // the verse number marker in the plain font
+}
+
+/// One printed line of the page, drawn directly: its words are laid out once, and who is highlighted only repaints. A page used to be a
+/// few hundred small widgets (a tap target, an animated box and a text for every word), which took long enough to build to be seen as a
+/// hitch whenever a page turned.
+class _MushafLine extends LeafRenderObjectWidget {
+  const _MushafLine({
+    required this.words,
+    required this.marks,
+    required this.family,
+    required this.size,
+    required this.gap,
+    required this.mode,
+    required this.ink,
+    required this.accent,
+    required this.playingColor,
+    required this.selectedColor,
+    required this.onTap,
+  });
+
+  final List<_LineWord> words;
+  final List<int> marks;
+  final String family;
+  final double size, gap;
+  final int mode;
+  final Color ink, accent, playingColor, selectedColor;
+  final void Function(int surah, int ayah)? onTap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderMushafLine()..update(this, force: true);
+
+  @override
+  void updateRenderObject(BuildContext context, covariant _RenderMushafLine renderObject) => renderObject.update(this);
+}
+
+class _RenderMushafLine extends RenderBox {
+  _RenderMushafLine() {
+    _tap = TapGestureRecognizer()..onTapUp = _onTapUp;
+  }
+
+  late final TapGestureRecognizer _tap;
+  List<_LineWord> _words = const [];
+  List<int> _marks = const [];
+  String _family = '';
+  double _size = 0, _gap = 0;
+  int _mode = 0;
+  Color _ink = const Color(0xFF000000), _accent = const Color(0xFF000000), _playing = const Color(0x00000000), _selected = const Color(0x00000000);
+  void Function(int, int)? _onTap;
+
+  List<TextPainter> _tps = const [];
+  List<Rect> _rects = const [];
+
+  void update(_MushafLine w, {bool force = false}) {
+    final relayout = force || w.family != _family || w.size != _size || w.gap != _gap || w.mode != _mode || w.ink != _ink || w.accent != _accent || !_sameWords(w.words);
+    final repaint = relayout || !_sameMarks(w.marks) || w.playingColor != _playing || w.selectedColor != _selected;
+    _words = w.words;
+    _marks = w.marks;
+    _family = w.family;
+    _size = w.size;
+    _gap = w.gap;
+    _mode = w.mode;
+    _ink = w.ink;
+    _accent = w.accent;
+    _playing = w.playingColor;
+    _selected = w.selectedColor;
+    _onTap = w.onTap;
+    if (relayout) {
+      markNeedsLayout();
+    } else if (repaint) {
+      markNeedsPaint();
+    }
+  }
+
+  bool _sameWords(List<_LineWord> o) {
+    if (o.length != _words.length) return false;
+    for (var i = 0; i < o.length; i++) {
+      if (o[i].text != _words[i].text || o[i].marker != _words[i].marker) return false;
+    }
+    return true;
+  }
+
+  bool _sameMarks(List<int> o) {
+    if (o.length != _marks.length) return false;
+    for (var i = 0; i < o.length; i++) {
+      if (o[i] != _marks[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  bool hitTestSelf(Offset position) => true;
+
+  @override
+  void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
+    if (event is PointerDownEvent) _tap.addPointer(event);
+  }
+
+  void _onTapUp(TapUpDetails d) {
+    final x = d.localPosition.dx;
+    int? best;
+    var bestDist = _size * 0.5; // a tap in the small gap between words still counts, for the nearer one
+    for (var i = 0; i < _rects.length; i++) {
+      final r = _rects[i];
+      final dist = x < r.left ? r.left - x : (x > r.right ? x - r.right : 0.0);
+      if (dist <= bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    }
+    if (best != null) _onTap?.call(_words[best].surah, _words[best].ayah);
+  }
+
+  @override
+  void performLayout() {
+    for (final t in _tps) {
+      t.dispose();
+    }
+    final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+    _tps = [
+      for (final word in _words)
+        TextPainter(
+          text: TextSpan(text: word.text, style: TextStyle(fontFamily: _family, fontSize: _size, height: 1.0, color: word.marker ? _accent : _ink)),
+          textDirection: TextDirection.rtl,
+        )..layout(),
+    ];
+    var tallest = 0.0, total = 0.0;
+    for (final t in _tps) {
+      total += t.width;
+      if (t.height > tallest) tallest = t.height;
+    }
+    final h = constraints.hasBoundedHeight ? constraints.maxHeight : tallest;
+    size = constraints.constrain(Size(w, h));
+
+    final n = _tps.length;
+    final natural = total + (n > 1 ? (n - 1) * _gap : 0);
+    final centre = _mode == 1 || (_mode == 2 && natural < size.width * 0.85);
+    final between = centre ? _gap : (n > 1 ? ((size.width - total) / (n - 1)).clamp(0.0, double.infinity) : 0.0);
+    // pages run right to left: the first word sits at the right edge
+    var x = centre ? (size.width + natural) / 2 : size.width;
+    _rects = [];
+    for (final t in _tps) {
+      final left = x - t.width;
+      _rects.add(Rect.fromLTWH(left, (size.height - t.height) / 2, t.width, t.height));
+      x = left - between;
+    }
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final canvas = context.canvas;
+    for (var i = 0; i < _tps.length; i++) {
+      final r = _rects[i].shift(offset);
+      final m = i < _marks.length ? _marks[i] : 0;
+      if (m != 0) canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(5)), Paint()..color = m == 2 ? _playing : _selected);
+      _tps[i].paint(canvas, r.topLeft);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tap.dispose();
+    for (final t in _tps) {
+      t.dispose();
+    }
+    super.dispose();
   }
 }
 
@@ -237,12 +419,15 @@ class _Banner extends StatelessWidget {
     return Container(
       margin: EdgeInsets.symmetric(vertical: height * 0.08),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [c.accent.withValues(alpha: 0.05), c.accent.withValues(alpha: 0.2), c.accent.withValues(alpha: 0.05)]),
         border: Border.symmetric(horizontal: BorderSide(color: c.accent.withValues(alpha: 0.55), width: 1.2)),
         borderRadius: BorderRadius.circular(6),
       ),
-      alignment: Alignment.center,
-      child: Text('سورة $name', style: TextStyle(fontFamily: kArabicFont, fontSize: height * 0.52, color: c.text)),
+      child: Stack(alignment: Alignment.center, children: [
+        Positioned.fill(
+          child: CustomPaint(painter: GradientPainter.linear([c.accent.withValues(alpha: 0.05), c.accent.withValues(alpha: 0.2), c.accent.withValues(alpha: 0.05)], begin: Alignment.centerLeft, end: Alignment.centerRight, radius: 6)),
+        ),
+        Text('سورة $name', style: TextStyle(fontFamily: kArabicFont, fontSize: height * 0.52, color: c.text)),
+      ]),
     );
   }
 }

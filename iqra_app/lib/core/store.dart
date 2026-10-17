@@ -56,6 +56,10 @@ class AppStore extends ChangeNotifier {
   int get accent => _get('accent', 0); // 0 = the theme's own colour, else ARGB
   set accent(int v) => _set('accent', v);
   bool get motion => _get('motion', true);
+  /// Visual effects: 0 automatic (lightened by itself on a device that drops frames), 1 always full, 2 light.
+  int get effects => _get<num>('effects', 0).toInt();
+  set effects(int v) => _set('effects', v);
+  void notifyEffects() => notifyListeners();
   set motion(bool v) => _set('motion', v);
   double get arabicSize => _get<num>('arSize', 30).toDouble();
   set arabicSize(double v) => _set('arSize', v);
@@ -67,6 +71,12 @@ class AppStore extends ChangeNotifier {
   set wordByWord(bool v) => _set('wbw', v);
   bool get mushafView => _get('mushafView', true);
   set mushafView(bool v) => _set('mushafView', v);
+  /// How big the mushaf pages are drawn: 1 fits the window, larger values use the room to the sides and scroll up and down.
+  double get mushafZoom => _get<num>('mushafZoom', 1.0).toDouble();
+  set mushafZoom(double v) => _set('mushafZoom', v);
+  /// Reading without the header, so the page gets the whole height (on by default on the computer).
+  bool get readerFocus => _get('readerFocus', defaultTargetPlatform != TargetPlatform.android);
+  set readerFocus(bool v) => _set('readerFocus', v);
 
   // ---- reading ----
   String get translationId => _get('tr1', 'en.sahih');

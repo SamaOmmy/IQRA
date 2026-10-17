@@ -1,13 +1,14 @@
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/perf.dart';
 import '../core/quran.dart';
 import '../core/store.dart';
 import '../core/theme.dart';
+import 'gradients.dart';
 
 const kArabicFont = 'OldMadina';
 
@@ -27,10 +28,10 @@ class Glass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final phone = Platform.isAndroid; // a live blur over scrolling content costs a frame on phones: use a nearly solid surface there
+    final phone = !Perf.glassBlur; // a live blur over scrolling content costs a frame on every frame of a scroll: a nearly solid surface instead
     final box = DecoratedBox(
       decoration: BoxDecoration(
-        color: (color ?? c.bg).withValues(alpha: phone ? math.max(opacity, 0.95) : opacity),
+        color: (color ?? c.bg).withValues(alpha: phone ? math.max(opacity, 0.96) : opacity),
         borderRadius: radius,
         border: border ? Border.all(color: c.separator.withValues(alpha: 0.7)) : null,
       ),
@@ -211,20 +212,14 @@ class SurahArt extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(r),
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [a, b]),
         boxShadow: [BoxShadow(color: a.withValues(alpha: 0.3), blurRadius: size * 0.14, offset: Offset(0, size * 0.06))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
         child: Stack(children: [
+          Positioned.fill(child: CustomPaint(painter: GradientPainter.linear([a, b]))),
           // soft light from the top corner
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(center: const Alignment(-0.7, -0.9), radius: 1.2, colors: [Colors.white.withValues(alpha: 0.22), Colors.transparent]),
-              ),
-            ),
-          ),
+          Positioned.fill(child: CustomPaint(painter: GradientPainter.radial([Colors.white.withValues(alpha: 0.22), Colors.transparent], center: const Alignment(-0.7, -0.9), spread: 1.2))),
           Positioned.fill(child: CustomPaint(painter: _PatternPainter(surah, Colors.white.withValues(alpha: 0.2)))),
           // a large faint copy of the name behind everything
           if (showName && size > 90)
@@ -375,20 +370,12 @@ class ColorTile extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(r),
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [a, b]),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(r)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
         child: Stack(children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(center: const Alignment(-0.8, -1), radius: 1.3, colors: [Colors.white.withValues(alpha: 0.2), Colors.transparent]),
-              ),
-            ),
-          ),
+          Positioned.fill(child: CustomPaint(painter: GradientPainter.linear([a, b]))),
+          Positioned.fill(child: CustomPaint(painter: GradientPainter.radial([Colors.white.withValues(alpha: 0.2), Colors.transparent], center: const Alignment(-0.8, -1), spread: 1.3))),
           Positioned.fill(child: CustomPaint(painter: _PatternPainter(seed, Colors.white.withValues(alpha: 0.16)))),
           child,
         ]),
@@ -524,7 +511,8 @@ class Reveal extends StatefulWidget {
 }
 
 class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 440));
+  late final Animation<double> _curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
   bool _started = false;
 
   @override
@@ -532,10 +520,12 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    if (!motionOn(context)) {
+    // tiles that scroll into view while the list is moving just appear: animating each one as it arrives is what makes a fling stutter
+    final moving = Scrollable.maybeOf(context)?.position.isScrollingNotifier.value ?? false;
+    if (!motionOn(context) || Perf.light || moving) {
       _c.value = 1;
     } else {
-      Future.delayed(Duration(milliseconds: 40 * math.min(widget.index, 8)), () {
+      Future.delayed(Duration(milliseconds: 30 * math.min(widget.index, 6)), () {
         if (mounted) _c.forward();
       });
     }
@@ -547,20 +537,17 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
+  // The same widgets before, during and after the animation (no state is lost at the end), and the child is painted once and then
+  // only moved and faded, not repainted every frame.
   @override
-  Widget build(BuildContext context) {
-    final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
-    return AnimatedBuilder(
-      animation: curve,
-      child: widget.child,
-      builder: (_, child) => curve.value >= 1
-          ? child!
-          : Opacity(
-              opacity: curve.value,
-              child: Transform.translate(offset: Offset(0, (1 - curve.value) * widget.dy), child: child),
-            ),
-    );
-  }
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _curve,
+        child: AnimatedBuilder(
+          animation: _curve,
+          child: RepaintBoundary(child: widget.child),
+          builder: (_, child) => Transform.translate(offset: Offset(0, (1 - _curve.value) * widget.dy), child: child),
+        ),
+      );
 }
 
 class Divider1 extends StatelessWidget {

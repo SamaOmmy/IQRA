@@ -12,6 +12,7 @@ import '../core/quran.dart';
 import '../core/store.dart';
 import '../core/theme.dart';
 import '../core/translation.dart';
+import 'book_flip.dart';
 import 'mushaf.dart';
 import 'live_verse.dart';
 import 'share_card.dart';
@@ -50,17 +51,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late int _page;
   late int _surah;
   VerseRef? _selected;
-  PageController? _pager;
+  final _book = GlobalKey<BookFlipState>();
   final _items = ItemScrollController();
   final _focus = FocusNode();
   Timer? _markTimer;
   late final AudioController _audio;
 
   bool _wide = false;
+  bool _ready = false; // the open animation is over: the page itself is built after it, not during it
+  bool _routeWatched = false;
 
   /// dev hook: the reader on screen
   static _ReaderScreenState? debugCurrent;
-  void debugFlip(int toPage, int ms) => _pager?.animateToPage(toPage - 1, duration: Duration(milliseconds: ms), curve: Curves.easeInOut);
+  void debugFlip(int toPage, int ms) => _book.currentState?.turnTo(_wide ? (toPage - 1) ~/ 2 : toPage - 1, duration: Duration(milliseconds: ms), curve: Curves.easeInOut);
 
   @override
   void initState() {
@@ -73,8 +76,33 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _page = widget.page ?? Quran.I.ayah(widget.surah, widget.ayah).page;
     _selected = widget.page == null ? VerseRef(widget.surah, widget.ayah) : null;
     _scheduleMark();
+    _prefetchFonts(_page);
     _audio = context.read<AudioController>();
+    final playing = _audio.current;
+    if (playing != null) _followed = playing.s * 1000 + playing.a; // follow changes from here, not where it already was
     _audio.addListener(_followAudio);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeWatched) return;
+    _routeWatched = true;
+    final anim = ModalRoute.of(context)?.animation;
+    if (anim == null || anim.isCompleted || !context.read<AppStore>().motion) {
+      _ready = true;
+      return;
+    }
+    void done(AnimationStatus st) {
+      if (st != AnimationStatus.completed) return;
+      anim.removeStatusListener(done);
+      if (mounted && !_ready) setState(() => _ready = true);
+    }
+
+    anim.addStatusListener(done);
+    Future<void>.delayed(const Duration(milliseconds: 700), () {
+      if (mounted && !_ready) setState(() => _ready = true);
+    });
   }
 
   @override
@@ -82,7 +110,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (debugCurrent == this) debugCurrent = null;
     Future.microtask(() => readerOpen.value--);
     _markTimer?.cancel();
-    _pager?.dispose();
     _focus.dispose();
     _audio.removeListener(_followAudio);
     super.dispose();
@@ -97,42 +124,80 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  int get _spreadIndex => (_page - 1) ~/ 2;
-
   void _goToPage(int p, {bool animate = true}) {
     p = p.clamp(1, 604);
-    if (_pager != null && _pager!.hasClients) {
-      final idx = _wide ? (p - 1) ~/ 2 : p - 1;
-      animate ? _pager!.animateToPage(idx, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic) : _pager!.jumpToPage(idx);
+    final idx = _wide ? (p - 1) ~/ 2 : p - 1;
+    final b = _book.currentState;
+    if (b == null) {
+      setState(() => _page = p);
+      return;
     }
-    setState(() => _page = p);
+    animate ? b.turnTo(idx) : b.jumpTo(idx);
   }
 
-  void _onPageChanged(int idx) {
+  /// Turns by whole sheets (a spread on wide windows, otherwise one page); +1 is forward.
+  void _turnBy(int delta) {
+    final b = _book.currentState;
+    if (b != null) b.turnTo(b.target + delta);
+  }
+
+  int _recorded = 0;
+  int _followed = -1;
+
+  /// The book settled on a sheet: remember the place.
+  void _onSheet(int idx) {
     final p = _wide ? idx * 2 + 1 : idx + 1;
-    if (p == _page) return;
-    setState(() => _page = p);
+    if (p != _page) setState(() => _page = p);
+    if (p == _recorded) return;
+    _recorded = p;
     final first = Quran.I.pageWords(p).first;
     context.read<AppStore>().setLast(first.surah, first.ayah, p);
     _scheduleMark();
     HapticFeedback.selectionClick();
+    _prefetchFonts(p);
+  }
+
+  /// Loads the fonts of the pages around this one so that turning to them shows the right letters at once.
+  Future<void> _prefetchFonts(int p) async {
+    for (final q in [p, p + 1, p - 1, p + 2, p - 2, p + 3, p + 4, p - 3]) {
+      if (!mounted) return;
+      if (q < 1 || q > 604) continue;
+      await MushafPage.prepare(q);
+      await Future<void>.delayed(const Duration(milliseconds: 30)); // one page per gap, so no single frame is held up
+    }
   }
 
   void _followAudio() {
     if (!mounted) return;
     final cur = _audio.current;
     if (cur == null) return;
+    // only when the verse changes: the audio reports its position many times a second, and the reader may be paging by hand
+    final key = cur.s * 1000 + cur.a;
+    if (key == _followed) return;
+    _followed = key;
     final ay = Quran.I.ayah(cur.s, cur.a);
     if (_mushaf) {
+      final b = _book.currentState;
+      if (b == null) return;
       final target = _wide ? (ay.page - 1) ~/ 2 : ay.page - 1;
-      final shown = _wide ? _spreadIndex : _page - 1;
-      if (target != shown && _pager != null && _pager!.hasClients && context.read<AppStore>().motion) {
-        _pager!.animateToPage(target, duration: const Duration(milliseconds: 500), curve: Curves.easeOutCubic);
-        setState(() => _page = _wide ? target * 2 + 1 : target + 1);
+      if (target != b.target) {
+        b.turnTo(target, duration: const Duration(milliseconds: 800));
+        if (context.read<AppStore>().mushafZoom > 1) b.scrollToFraction(_verseFraction(ay), animate: false);
+      } else if (context.read<AppStore>().mushafZoom > 1) {
+        // a tall page: keep the verse being recited in view
+        b.scrollToFraction(_verseFraction(ay));
       }
     } else if (cur.s == _surah && _items.isAttached) {
       _items.scrollTo(index: cur.a, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic, alignment: 0.15);
     }
+  }
+
+  /// Roughly how far down its page a verse starts (0 top .. 1 bottom), from the words before it.
+  double _verseFraction(Ayah ay) {
+    final words = Quran.I.pageWords(ay.page);
+    final i = words.indexWhere((w) => w.surah == ay.surah && w.ayah == ay.n);
+    if (i <= 0 || words.isEmpty) return 0;
+    return i / words.length;
   }
 
   VerseRef? _panel; // the verse shown in the side panel (wide windows)
@@ -155,13 +220,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   KeyEventResult _onKey(FocusNode n, KeyEvent e) {
     if (e is! KeyDownEvent || !_mushaf) return KeyEventResult.ignored;
+    if (e.logicalKey == LogicalKeyboardKey.keyF && !HardwareKeyboard.instance.isControlPressed) {
+      final st = context.read<AppStore>();
+      st.readerFocus = !st.readerFocus;
+      return KeyEventResult.handled;
+    }
     // pages run right to left: the left arrow turns forward
     if (e.logicalKey == LogicalKeyboardKey.arrowLeft) {
-      _goToPage(_page + (_wide ? 2 : 1));
+      _turnBy(1);
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowRight) {
-      _goToPage(_page - (_wide ? 2 : 1));
+      _turnBy(-1);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -175,6 +245,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final surahForPage = Quran.I.pageWords(_page).first.surah;
     final headerSurah = _mushaf ? surahForPage : _surah;
     final sr = Quran.I.surah(headerSurah);
+    final focus = store.readerFocus && _mushaf;
+    final top = MediaQuery.of(context).padding.top;
     return Focus(
       focusNode: _focus,
       autofocus: true,
@@ -184,9 +256,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
         body: Stack(children: [
           Positioned.fill(
             child: Padding(
-              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56, bottom: MediaQuery.of(context).padding.bottom),
+              padding: EdgeInsets.only(top: top + (focus ? 2 : 56), bottom: MediaQuery.of(context).padding.bottom),
               child: Row(children: [
-                Expanded(child: _mushaf ? _buildMushaf(store, audio) : _buildVerses(store, audio)),
+                Expanded(child: !_ready ? const SizedBox.expand() : (_mushaf ? _buildMushaf(store, audio) : _buildVerses(store, audio))),
                 if (_dock && _panel != null)
                   _SidePanel(
                     key: ValueKey('panel-${_panel!.key}'),
@@ -203,7 +275,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
             top: 0,
             left: 0,
             right: 0,
-            child: Glass(
+            child: IgnorePointer(
+              ignoring: focus,
+              child: AnimatedSlide(
+                offset: focus ? const Offset(0, -1.2) : Offset.zero,
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                child: Glass(
               blur: 30,
               opacity: 0.8,
               child: SafeArea(
@@ -242,14 +320,53 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       },
                       icon: Icon(Icons.play_circle_fill_rounded, color: c.accent, size: 30),
                     ),
+                    if (_mushaf) IconButton(onPressed: () => store.readerFocus = true, tooltip: 'Focus: hide this bar (F)', icon: const Icon(Icons.fullscreen_rounded)),
                     IconButton(onPressed: () => _readerSettings(context), icon: const Icon(Icons.text_fields_rounded)),
                     const SizedBox(width: 4),
                   ]),
                 ),
               ),
             ),
+              ),
+            ),
+          ),
+          // while the bar is hidden, a small way back
+          Positioned(
+            top: top + 6,
+            left: 8,
+            child: AnimatedOpacity(
+              opacity: focus ? 1 : 0,
+              duration: const Duration(milliseconds: 220),
+              child: IgnorePointer(
+                ignoring: !focus,
+                child: Column(children: [
+                  _chip(Icons.arrow_back_ios_new_rounded, 'Back', () => Navigator.of(context).maybePop()),
+                  const SizedBox(height: 8),
+                  _chip(Icons.fullscreen_exit_rounded, 'Show the bar (F)', () => store.readerFocus = false),
+                  const SizedBox(height: 8),
+                  _chip(Icons.text_fields_rounded, 'Reading settings', () => _readerSettings(context)),
+                ]),
+              ),
+            ),
           ),
         ]),
+      ),
+    );
+  }
+
+  Widget _chip(IconData icon, String tip, VoidCallback onTap) {
+    final c = context.c;
+    return Tooltip(
+      message: tip,
+      child: Pressable(
+        onTap: onTap,
+        radius: 100,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(color: c.surface.withValues(alpha: 0.88), shape: BoxShape.circle, border: Border.all(color: c.separator, width: 0.6)),
+          child: Icon(icon, size: 18, color: c.text),
+        ),
       ),
     );
   }
@@ -291,8 +408,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         _page = _selected != null ? Quran.I.ayah(_selected!.s, _selected!.a).page : Quran.I.surah(_surah).firstPage;
       }
       _mushaf = mushaf;
-      _pager?.dispose();
-      _pager = null;
     });
   }
 
@@ -300,88 +415,48 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget _buildMushaf(AppStore store, AudioController audio) {
     return LayoutBuilder(builder: (context, box) {
       final wide = box.maxWidth >= 1000 && store.mushafView;
-      if (wide != _wide || _pager == null) {
-        _wide = wide;
-        _pager?.dispose();
-        _pager = PageController(initialPage: wide ? (_page - 1) ~/ 2 : _page - 1);
+      _wide = wide;
+      final availH = box.maxHeight - 6;
+      final side = box.maxWidth > 700 ? 64.0 : 8.0; // room for the paging arrows
+      final slotW = wide ? (box.maxWidth - 2 * side) / 2 : box.maxWidth - 2 * side;
+      // a page that fits the window, as printed ...
+      var pageH = availH;
+      var pageW = math.max(200.0, math.min(pageH * (wide ? 0.78 : 0.72), slotW));
+      // ... or larger when there is room to the sides (the window then scrolls it up and down)
+      final zoom = store.mushafZoom;
+      if (zoom > 1) {
+        pageH = math.min(availH * zoom, math.max(availH, slotW / 0.76));
+        pageW = math.max(200.0, math.min(pageH * 0.76, slotW));
       }
-      final availH = box.maxHeight - 24;
-      final onePageW = (availH * 0.72).clamp(260.0, box.maxWidth - 16);
-      final pageW = _wide ? ((box.maxWidth - 40) / 2).clamp(260.0, availH * 0.78) : onePageW;
-      return Directionality(
-        textDirection: TextDirection.rtl,
-        child: Stack(children: [
-          PageView.builder(
-            controller: _pager,
-            itemCount: _wide ? 302 : 604,
-            onPageChanged: _onPageChanged,
-            itemBuilder: (context, i) {
-              Widget pageFor(int p) => SizedBox(
-                    width: pageW,
-                    height: availH,
-                    child: MushafPage(
-                      page: p,
-                      playing: audio.current,
-                      selected: _selected,
-                      fontScale: store.arabicSize > 0 ? 1 : 1,
-                      onVerseTap: _tapVerse,
-                    ),
-                  );
-              final content = Center(
-                child: _wide
-                    ? Row(mainAxisSize: MainAxisSize.min, children: [
-                        pageFor(i * 2 + 1),
-                        const SizedBox(width: 14),
-                        if (i * 2 + 2 <= 604) pageFor(i * 2 + 2),
-                      ])
-                    : pageFor(i + 1),
-              );
-              return _turn(i, box.maxWidth, content, store.motion);
-            },
+      final index = wide ? (_page - 1) ~/ 2 : _page - 1;
+      return Stack(children: [
+        KeyedSubtree(
+          // a new layout starts a new book, on the page being read
+          key: ValueKey('book-$wide'),
+          child: BookFlip(
+          key: _book,
+          index: index,
+          count: wide ? 302 : 604,
+          spread: wide,
+          pageW: pageW,
+          pageH: pageH,
+          viewH: availH,
+          motion: store.motion,
+          onChanged: _onSheet,
+          page: (p) => MushafPage(
+            page: p,
+            playing: audio.current,
+            selected: _selected,
+            fontScale: 1,
+            onVerseTap: _tapVerse,
           ),
-          // desktop paging arrows
-          if (box.maxWidth > 700) ...[
-            Positioned(left: 8, top: 0, bottom: 0, child: Center(child: _arrow(Icons.chevron_left_rounded, () => _goToPage(_page + (_wide ? 2 : 1))))),
-            Positioned(right: 8, top: 0, bottom: 0, child: Center(child: _arrow(Icons.chevron_right_rounded, () => _goToPage(_page - (_wide ? 2 : 1))))),
-          ],
-        ]),
-      );
+        )),
+        if (box.maxWidth > 700) ...[
+          Positioned(left: 8, top: 0, bottom: 0, child: Center(child: _arrow(Icons.chevron_left_rounded, () => _turnBy(1)))),
+          Positioned(right: 8, top: 0, bottom: 0, child: Center(child: _arrow(Icons.chevron_right_rounded, () => _turnBy(-1)))),
+        ],
+      ]);
     });
-  }
-
-  /// The page-turn: while the pager moves, the book stays put and the higher page of the pair swings about the spine (on the
-  /// right edge, as in an Arabic book), turning over the page beneath it. Spreads on wide windows just fade and settle.
-  Widget _turn(int i, double viewport, Widget content, bool motion) {
-    final pc = _pager!;
-    return AnimatedBuilder(
-      animation: pc,
-      child: content,
-      builder: (_, child) {
-        if (!motion || !pc.hasClients || !pc.position.haveDimensions) return child!;
-        final d = i - (pc.page ?? i.toDouble());
-        if (d.abs() >= 1 || d == 0) return child!;
-        if (_wide) {
-          return Opacity(opacity: 1 - d.abs() * 0.55, child: Transform.scale(scale: 1 - d.abs() * 0.04, child: child));
-        }
-        final m = Matrix4.identity()
-          ..setEntry(3, 2, 0.0013)
-          ..translateByDouble(d * viewport, 0, 0, 1);
-        if (d > 0) {
-          final curve = Curves.easeInOut.transform(d);
-          m.rotateY(curve * 1.45);
-          return Transform(
-            alignment: Alignment.centerRight,
-            transform: m,
-            child: Stack(fit: StackFit.passthrough, children: [child!, Positioned.fill(child: IgnorePointer(child: ColoredBox(color: Colors.black.withValues(alpha: 0.32 * curve))))]),
-          );
-        }
-        // the page beneath: held in place, slightly dimmed as the turning page passes over it
-        return Transform(
-          transform: m,
-          child: Stack(fit: StackFit.passthrough, children: [child!, Positioned.fill(child: IgnorePointer(child: ColoredBox(color: Colors.black.withValues(alpha: 0.18 * math.min(1, -d)))))]),
-        );
-      },
-    );
   }
 
   Widget _arrow(IconData icon, VoidCallback onTap) {
@@ -486,6 +561,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Reading', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 12),
+                    if (_mushaf)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Compact reading'),
+                        subtitle: const Text('Hides the top bar so the whole page is as big as it can be (F)'),
+                        value: store.readerFocus,
+                        onChanged: (v) => store.readerFocus = v,
+                      ),
+                    if (_mushaf && MediaQuery.of(ctx).size.width > 700) ...[
+                      Text('Page size', style: TextStyle(color: c.textSecondary)),
+                      const SizedBox(height: 6),
+                      Segmented(
+                        items: const ['Fit', 'Large', 'Extra large'],
+                        index: store.mushafZoom >= 1.4 ? 2 : (store.mushafZoom > 1.05 ? 1 : 0),
+                        onChanged: (i) => store.mushafZoom = const [1.0, 1.25, 1.5][i],
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     Text('Arabic size', style: TextStyle(color: c.textSecondary)),
                     Slider(min: 22, max: 48, value: store.arabicSize.clamp(22, 48), onChanged: (v) => store.arabicSize = v),
                     Text('Translation size', style: TextStyle(color: c.textSecondary)),

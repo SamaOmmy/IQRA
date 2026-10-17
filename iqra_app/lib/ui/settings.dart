@@ -34,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(padding: const EdgeInsets.fromLTRB(6, 0, 0, 8), child: Text(title.toUpperCase(), style: TextStyle(color: c.textSecondary, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8))),
-            Container(decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 4), child: Column(children: children)),
+            Container(decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 4), child: Material(type: MaterialType.transparency, child: Column(children: children))),
           ]),
         );
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -78,6 +78,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
             ),
             SwitchListTile(title: const Text('Gentle animations'), subtitle: const Text('Cards glide in, pages turn smoothly'), value: s.motion, onChanged: (v) => s.motion = v),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Visual effects', style: TextStyle(fontSize: 16)),
+                const SizedBox(height: 2),
+                Text('Automatic keeps everything smooth by itself and drops the fancy reveals on a device that struggles. Light is the smoothest on older hardware. Full adds the frosted-glass blur on a computer with a good graphics chip.', style: TextStyle(color: c.textSecondary, fontSize: 13)),
+                const SizedBox(height: 10),
+                Segmented(items: const ['Automatic', 'Full', 'Light'], index: s.effects.clamp(0, 2), onChanged: (i) => s.effects = i),
+              ]),
+            ),
           ]),
         ),
         SliverToBoxAdapter(
