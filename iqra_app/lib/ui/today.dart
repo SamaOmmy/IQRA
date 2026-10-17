@@ -426,7 +426,7 @@ class _UpdateBanner extends StatelessWidget {
             FilledButton(
               onPressed: busy ? null : () => u.install(),
               style: FilledButton.styleFrom(backgroundColor: c.accent, foregroundColor: c.onAccent, shape: const StadiumBorder()),
-              child: Text(busy ? '${(u.progress * 100).round()}%' : (u.canInstallHere ? 'Update' : 'Download')),
+              child: Text(busy ? '${(u.progress * 100).round()}%' : (u.ready ? 'Install' : (u.canInstallHere ? 'Update' : 'Download'))),
             ),
           ]),
           if (busy) Padding(padding: const EdgeInsets.only(top: 10), child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: u.progress == 0 ? null : u.progress, minHeight: 5, color: c.accent, backgroundColor: c.accent.withValues(alpha: 0.2)))),

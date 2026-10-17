@@ -52,11 +52,31 @@ class MainActivity : AudioServiceActivity() {
                     AdhanScheduler.start(this, 9, call.argument<String>("title") ?: "IQRA", call.argument<String>("body") ?: "Prayer reminders are working.", call.argument<Boolean>("adhan") ?: true)
                     result.success(true)
                 }
+                "setSound" -> {
+                    getSharedPreferences("iqra_adhan", MODE_PRIVATE).edit().putInt("sound", call.argument<Int>("n") ?: 2).apply()
+                    result.success(true)
+                }
                 "stop" -> {
                     startService(android.content.Intent(this, AdhanService::class.java).setAction("STOP"))
                     result.success(true)
                 }
                 else -> result.notImplemented()
+            }
+        }
+        // Update downloads that carry on while the app is closed (see Downloads.kt).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iqra/download").setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "start" -> result.success(UpdateDownloads.start(this, call.argument<String>("url")!!, call.argument<String>("name")!!))
+                    "status" -> result.success(UpdateDownloads.status(this))
+                    "cancel" -> {
+                        UpdateDownloads.cancel(this)
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) {
+                result.error("download", e.message, null)
             }
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iqra/geo").setMethodCallHandler { call, result ->

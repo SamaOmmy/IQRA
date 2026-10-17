@@ -103,13 +103,14 @@ class PrayerNotifier {
       } else if (Platform.isWindows) {
         _timers.add(Timer(at.difference(DateTime.now().toUtc()), () async {
           await _windowsToast(title, body);
-          if (adhan) AdhanPlayer.play();
+          if (adhan) AdhanPlayer.play(sound: s.adhanSound);
           reschedule(s);
         }));
       }
     }
 
     final native = <Map<String, Object>>[];
+    if (Platform.isAndroid) await setSound(s.adhanSound);
     if (s.notifyPrayers && place != null) {
       for (var d = 0; d < days; d++) {
         final date = localDate(place.tz, now.add(Duration(days: d)));
@@ -159,15 +160,24 @@ class PrayerNotifier {
     }
   }
 
-  static Future<void> test({bool adhan = false}) async {
+  /// Tells the Android alarm service which recording to play.
+  static Future<void> setSound(int n) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _native.invokeMethod('setSound', {'n': n});
+    } catch (_) {}
+  }
+
+  static Future<void> test({bool adhan = false, int sound = 2}) async {
     if (Platform.isWindows) {
       await _windowsToast('IQRA', 'Prayer reminders are working.');
-      if (adhan) AdhanPlayer.play();
+      if (adhan) AdhanPlayer.play(sound: sound);
       return;
     }
     if (Platform.isAndroid) {
       await requestPermission();
       try {
+        await setSound(sound);
         await _native.invokeMethod('test', {'title': 'IQRA', 'body': 'Prayer reminders are working.', 'adhan': adhan});
         return;
       } catch (_) {}

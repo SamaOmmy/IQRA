@@ -165,11 +165,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
               ),
             if (s.adhan)
-              ListTile(
-                title: const Text('Listen to the adhan'),
-                subtitle: const Text('Recording: Aaqib Azeez (CC BY-SA 4.0), via Wikimedia Commons'),
-                trailing: const Icon(Icons.play_circle_outline_rounded),
-                onTap: () => AdhanPlayer.play(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Adhan sound', style: TextStyle(fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Segmented(
+                    items: const ['Adhan 1', 'Adhan 2', 'Adhan 3'],
+                    index: s.adhanSound - 1,
+                    onChanged: (i) {
+                      s.adhanSound = i + 1;
+                      PrayerNotifier.setSound(i + 1);
+                      AdhanPlayer.play(sound: i + 1);
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                        const ['Recording: Aaqib Azeez (CC BY-SA 4.0), via Wikimedia Commons', 'Recording: "Beautiful adhan" by Adam-synagda (CC0), via Wikimedia Commons', 'Recording: "Azan" by Andrewler (CC BY-SA 4.0), via Wikimedia Commons'][s.adhanSound - 1],
+                        style: TextStyle(color: context.c.textSecondary, fontSize: 12.5),
+                      ),
+                    ),
+                    IconButton(onPressed: () => AdhanPlayer.play(sound: s.adhanSound), tooltip: 'Listen', icon: const Icon(Icons.play_circle_outline_rounded)),
+                    IconButton(onPressed: AdhanPlayer.stop, tooltip: 'Stop', icon: const Icon(Icons.stop_circle_outlined)),
+                  ]),
+                ]),
               ),
             ListTile(
               title: const Text('Hijri date adjustment'),
@@ -186,7 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _pickVerseTime(context),
             ),
             if ((s.notifyPrayers && s.place != null) || s.dailyVerseAt >= 0)
-              ListTile(title: const Text('Send a test notification'), trailing: const Icon(Icons.notifications_active_outlined), onTap: () => PrayerNotifier.test(adhan: s.adhan)),
+              ListTile(title: const Text('Send a test notification'), trailing: const Icon(Icons.notifications_active_outlined), onTap: () => PrayerNotifier.test(adhan: s.adhan, sound: s.adhanSound)),
           ]),
         ),
         SliverToBoxAdapter(

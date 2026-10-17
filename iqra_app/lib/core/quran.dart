@@ -91,10 +91,13 @@ class Quran {
   late final List<Surah> surahs;
   late final String bismillah;
   late final List<PackInfo> translations, tafsirs;
-  late final List<List<dynamic>> _pages;
+  late List<List<dynamic>> _pages;
   List<dynamic>? _words;
   List<dynamic>? _qcf;
   bool get hasQcf => _qcf != null;
+
+  /// Test hook: behave like a public build.
+  void debugDropQcf() => _qcf = null;
   final Map<String, List<String>> _packCache = {};
   late final Map<int, int> _juzStart; // juz -> global ayah number
 
@@ -125,6 +128,41 @@ class Quran {
     } catch (_) {
       _qcf = null; // public build: the licensed glyph data is not shipped
     }
+    _repairPages();
+  }
+
+  /// In the source data about 25 pages carry the first words of the next page at their end (or the last words of the previous page
+  /// at their start), which made a printed line twice as long as it should be. Where the line numbers run backwards, the shorter
+  /// part is moved (with its glyphs) to the page it belongs to.
+  void _repairPages() {
+    final n = _pages.length;
+    final head = List<int>.filled(n, 0); // words at the start that belong to the previous page
+    final tail = List<int>.filled(n, 0); // words at the end that belong to the next page
+    for (var p = 0; p < n; p++) {
+      final ws = _pages[p];
+      for (var k = 1; k < ws.length; k++) {
+        if ((ws[k][3] as int) < (ws[k - 1][3] as int)) {
+          if (k <= ws.length - k) {
+            head[p] = k;
+          } else {
+            tail[p] = ws.length - k;
+          }
+          break;
+        }
+      }
+    }
+    if (head.every((x) => x == 0) && tail.every((x) => x == 0)) return;
+    List<List<dynamic>> mend(List<List<dynamic>> src) => [
+          for (var p = 0; p < n; p++)
+            [
+              if (p > 0) ...src[p - 1].sublist(src[p - 1].length - tail[p - 1]),
+              ...src[p].sublist(head[p], src[p].length - tail[p]),
+              if (p < n - 1) ...src[p + 1].sublist(0, head[p + 1]),
+            ],
+        ];
+    final glyphs = _qcf == null ? null : [for (final g in _qcf!) g as List<dynamic>];
+    _pages = mend(_pages);
+    if (glyphs != null) _qcf = mend(glyphs);
   }
 
   Surah surah(int n) => surahs[n - 1];

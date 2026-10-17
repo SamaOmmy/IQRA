@@ -220,6 +220,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   KeyEventResult _onKey(FocusNode n, KeyEvent e) {
     if (e is! KeyDownEvent || !_mushaf) return KeyEventResult.ignored;
+    if (e.logicalKey == LogicalKeyboardKey.space) {
+      // play / pause what is being recited, or start from the top of this page
+      if (_audio.current != null) {
+        _audio.toggle();
+      } else {
+        final first = Quran.I.pageWords(_page).first;
+        _audio.playVerse(first.surah, first.ayah, scope: PlayScope.continuous);
+      }
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.escape && context.read<AppStore>().readerFocus && _panel == null) {
+      context.read<AppStore>().readerFocus = false;
+      return KeyEventResult.handled;
+    }
     if (e.logicalKey == LogicalKeyboardKey.keyF && !HardwareKeyboard.instance.isControlPressed) {
       final st = context.read<AppStore>();
       st.readerFocus = !st.readerFocus;

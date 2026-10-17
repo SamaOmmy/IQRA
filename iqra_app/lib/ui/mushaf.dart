@@ -43,10 +43,15 @@ class MushafPage extends StatefulWidget {
 
   static final Map<String, double> _widest = {};
 
+  /// Plain-font text size is the same on every page: the width of a line at size 100 that about 95% of all lines in the Qur'an fit
+  /// (measured over all 604 pages). A longer line is shrunk to fit on its own, a shorter one is spread out, as in the printed page.
+  static const double _plainReference = 1730;
+
   /// Gets a page ready before it is needed: loads its font and measures it, so that turning to it costs nothing.
   static Future<void> prepare(int page) async {
     final glyphs = Quran.I.pageGlyphs(page);
     final qcf = glyphs != null && await MushafFonts.ensure(page);
+    if (!qcf) return; // the plain font needs no measuring
     final key = '$page|$qcf';
     if (_widest.containsKey(key)) return;
     final words = Quran.I.pageWords(page);
@@ -124,7 +129,7 @@ class _MushafPageState extends State<MushafPage> {
       }
 
       final family = _qcf ? 'QCF_p${widget.page}' : kArabicFont;
-      String textOf(int i) => _qcf ? _glyphs![i] : _words[i].text;
+      String textOf(int i) => _qcf ? _glyphs![i] : (_words[i].isEnd ? '\u06DD${_words[i].text}' : _words[i].text);
 
       // one font size for the page: the widest line fills the width, never taller than its row
       double wordWidth(int i, double size) {
@@ -145,14 +150,14 @@ class _MushafPageState extends State<MushafPage> {
 
       // the widest line at a fixed size: the same whatever the window, so it is measured once per page and kept
       final widestKey = '${widget.page}|$_qcf';
-      double widest = MushafPage._widest[widestKey] ?? 0;
+      double widest = _qcf ? (MushafPage._widest[widestKey] ?? 0) : MushafPage._plainReference;
       if (widest == 0) {
         widest = 1.0;
         for (final idx in lines.values) {
           final n = natural(idx, 100);
           if (n > widest) widest = n;
         }
-        MushafPage._widest[widestKey] = widest;
+        if (_qcf) MushafPage._widest[widestKey] = widest;
       }
       final base = (0.985 * 100 * innerW / widest).clamp(8.0, rowH * (_qcf ? 0.95 : 0.78));
       final size = base * widget.fontScale.clamp(0.6, 1.0);
@@ -180,7 +185,7 @@ class _MushafPageState extends State<MushafPage> {
         final endsSurah = last.isEnd && last.ayah == Quran.I.surah(last.surah).ayahs.length;
         return _MushafLine(
           words: [
-            for (final i in idx) _LineWord(_qcf ? _glyphs![i] : _words[i].text, _words[i].surah, _words[i].ayah, !_qcf && _words[i].isEnd),
+            for (final i in idx) _LineWord(textOf(i), _words[i].surah, _words[i].ayah, !_qcf && _words[i].isEnd),
           ],
           marks: [for (final i in idx) _mark(_words[i])],
           family: family,
@@ -352,31 +357,53 @@ class _RenderMushafLine extends RenderBox {
     if (best != null) _onTap?.call(_words[best].surah, _words[best].ayah);
   }
 
+  List<TextPainter> _layoutWords(double fontSize) => [
+        for (final word in _words)
+          TextPainter(
+            text: TextSpan(text: word.text, style: TextStyle(fontFamily: _family, fontSize: fontSize, height: 1.0, color: word.marker ? _accent : _ink)),
+            textDirection: TextDirection.rtl,
+          )..layout(),
+      ];
+
   @override
   void performLayout() {
     for (final t in _tps) {
       t.dispose();
     }
     final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
-    _tps = [
-      for (final word in _words)
-        TextPainter(
-          text: TextSpan(text: word.text, style: TextStyle(fontFamily: _family, fontSize: _size, height: 1.0, color: word.marker ? _accent : _ink)),
-          textDirection: TextDirection.rtl,
-        )..layout(),
-    ];
-    var tallest = 0.0, total = 0.0;
-    for (final t in _tps) {
+    var fontSize = _size, gap = _gap;
+    var tps = _layoutWords(fontSize);
+    double total = 0;
+    for (final t in tps) {
       total += t.width;
+    }
+    final n = tps.length;
+    var natural = total + (n > 1 ? (n - 1) * gap : 0);
+    if (natural > w && w > 0) {
+      // a line longer than the page is allowed to be: shrink just this line to fit (never below half size)
+      final k = (w * 0.995 / natural).clamp(0.5, 1.0);
+      for (final t in tps) {
+        t.dispose();
+      }
+      fontSize *= k;
+      gap *= k;
+      tps = _layoutWords(fontSize);
+      total = 0;
+      for (final t in tps) {
+        total += t.width;
+      }
+      natural = total + (n > 1 ? (n - 1) * gap : 0);
+    }
+    _tps = tps;
+    var tallest = 0.0;
+    for (final t in _tps) {
       if (t.height > tallest) tallest = t.height;
     }
     final h = constraints.hasBoundedHeight ? constraints.maxHeight : tallest;
     size = constraints.constrain(Size(w, h));
 
-    final n = _tps.length;
-    final natural = total + (n > 1 ? (n - 1) * _gap : 0);
     final centre = _mode == 1 || (_mode == 2 && natural < size.width * 0.85);
-    final between = centre ? _gap : (n > 1 ? ((size.width - total) / (n - 1)).clamp(0.0, double.infinity) : 0.0);
+    final between = centre ? gap : (n > 1 ? ((size.width - total) / (n - 1)).clamp(0.0, double.infinity) : 0.0);
     // pages run right to left: the first word sits at the right edge
     var x = centre ? (size.width + natural) / 2 : size.width;
     _rects = [];

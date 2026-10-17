@@ -137,7 +137,11 @@ class AdhanService : Service() {
         }
         try {
             wake = (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "iqra:adhan").apply { acquire(6 * 60 * 1000L) }
-            val afd = resources.openRawResourceFd(R.raw.adhan)
+            // the recording chosen in Settings (1 is the first one, the others are adhan_2, adhan_3)
+            val n = getSharedPreferences("iqra_adhan", Context.MODE_PRIVATE).getInt("sound", 2)
+            var res = resources.getIdentifier(if (n <= 1) "adhan" else "adhan_$n", "raw", packageName)
+            if (res == 0) res = R.raw.adhan
+            val afd = resources.openRawResourceFd(res)
             player?.release()
             player = MediaPlayer().apply {
                 setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())

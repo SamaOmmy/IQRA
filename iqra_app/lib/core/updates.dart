@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 const kRepo = 'SamaOmmy/IQRA';
 const _geo = MethodChannel('iqra/geo');
+const _dl = MethodChannel('iqra/download');
 
 class _Asset {
   const _Asset(this.name, this.url, this.size);
@@ -32,6 +33,12 @@ class UpdateChecker extends ChangeNotifier {
   bool downloading = false;
   double progress = 0;
   String? installMessage;
+
+  /// Android: the finished download, waiting to be installed.
+  String? readyPath;
+  bool get ready => readyPath != null && available;
+  Timer? _poll;
+  bool _installWhenDone = false;
 
   bool get available => latest != null && current.isNotEmpty && _newer(latest!, current);
 
@@ -70,6 +77,7 @@ class UpdateChecker extends ChangeNotifier {
             _Asset((a as Map)['name'] as String, a['browser_download_url'] as String, (a['size'] as num?)?.toInt() ?? 0),
         ];
         message = available ? 'Version $latest is available.' : 'You have the latest version.';
+        if (available) unawaited(resumePending());
       } else {
         message = 'Could not check for updates.';
       }
@@ -114,66 +122,179 @@ class UpdateChecker extends ChangeNotifier {
     return null;
   }
 
+  // ---------------- Android: the system download manager ----------------
+
+  /// Joins a download that is already under way, or finished, for this release. The system keeps downloading while the app is
+  /// closed, so this is what shows its progress (or the Install button) when the app is opened again.
+  Future<void> resumePending() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final st = Map<String, dynamic>.from(await _dl.invokeMethod('status') as Map);
+      _apply(st);
+    } catch (_) {}
+  }
+
+  void _apply(Map<String, dynamic> st) {
+    final state = st['state'] as String? ?? 'none';
+    final name = st['name'] as String?;
+    if (state != 'none' && (name == null || latest == null || !name.contains(latest!))) {
+      // a download of some other version: not ours any more
+      _stopPolling();
+      return;
+    }
+    switch (state) {
+      case 'pending' || 'running' || 'paused':
+        final got = (st['got'] as num?)?.toDouble() ?? 0, total = (st['total'] as num?)?.toDouble() ?? 0;
+        downloading = true;
+        readyPath = null;
+        progress = total > 0 ? (got / total).clamp(0.0, 1.0) : 0;
+        installMessage = state == 'paused'
+            ? 'Waiting for a connection. It carries on by itself.'
+            : (total > 0 ? 'Downloading ${(progress * 100).round()}%. You can close the app: it keeps going.' : 'Starting the download…');
+        _startPolling();
+      case 'done':
+        _stopPolling();
+        downloading = false;
+        progress = 1;
+        readyPath = st['path'] as String?;
+        installMessage = 'Downloaded. Tap Install to finish.';
+        if (_installWhenDone && readyPath != null) {
+          _installWhenDone = false;
+          unawaited(_installApk(readyPath!));
+        }
+      case 'failed':
+        _stopPolling();
+        downloading = false;
+        readyPath = null;
+        installMessage = 'The download failed. Tap Update to try again.';
+      default:
+        _stopPolling();
+        if (downloading) {
+          downloading = false;
+          installMessage = 'The download was cancelled.';
+        }
+    }
+    notifyListeners();
+  }
+
+  void _startPolling() {
+    _poll ??= Timer.periodic(const Duration(milliseconds: 700), (_) => resumePending());
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  Future<void> _installApk(String path) async {
+    try {
+      final r = await _geo.invokeMethod<String>('installApk', {'path': path});
+      installMessage = r == 'permission' ? 'Allow IQRA to install apps in the settings page that opened, then tap Install again.' : 'Follow the prompt to finish updating.';
+    } catch (e) {
+      installMessage = 'The update could not be installed ($e).';
+    }
+    notifyListeners();
+  }
+
   /// Downloads the new version and starts installing it.
   Future<void> install() async {
     if (downloading) return;
+    if (Platform.isAndroid && readyPath != null && File(readyPath!).existsSync()) {
+      await _installApk(readyPath!);
+      return;
+    }
     final asset = await _pick();
     if (asset == null || !canInstallHere) {
       if (url != null) await launchUrl(Uri.parse(url!), mode: LaunchMode.externalApplication);
       return;
     }
+    if (Platform.isAndroid) {
+      try {
+        _installWhenDone = true;
+        downloading = true;
+        progress = 0;
+        installMessage = 'Starting the download…';
+        notifyListeners();
+        await _dl.invokeMethod('start', {'url': asset.url, 'name': asset.name});
+        await resumePending();
+      } catch (e) {
+        downloading = false;
+        installMessage = 'The download could not start ($e). You can get it from the release page.';
+        notifyListeners();
+      }
+      return;
+    }
+
+    // Windows: a download that is cut off keeps what it has and carries on from there next time
     downloading = true;
     progress = 0;
     installMessage = 'Downloading…';
     notifyListeners();
     final client = http.Client();
     try {
-      final dir = await getTemporaryDirectory();
+      final dir = await getApplicationSupportDirectory();
+      await dir.create(recursive: true);
       final file = File('${dir.path}${Platform.pathSeparator}${asset.name}');
-      if (await file.exists()) await file.delete();
-      final resp = await client.send(http.Request('GET', Uri.parse(asset.url)));
-      if (resp.statusCode != 200) throw 'download failed (${resp.statusCode})';
-      final total = resp.contentLength ?? asset.size;
-      var got = 0;
-      final sink = file.openWrite();
-      await for (final chunk in resp.stream) {
-        sink.add(chunk);
-        got += chunk.length;
-        if (total > 0) {
-          final p = got / total;
-          if (p - progress > 0.01) {
-            progress = p.clamp(0, 1).toDouble();
-            installMessage = 'Downloading ${(progress * 100).round()}%';
-            notifyListeners();
+      final part = File('${file.path}.part');
+      if (await file.exists() && asset.size > 0 && await file.length() == asset.size) {
+        await _runInstaller(file);
+        return;
+      }
+      var have = await part.exists() ? await part.length() : 0;
+      if (asset.size > 0 && have >= asset.size) {
+        await part.delete();
+        have = 0;
+      }
+      final req = http.Request('GET', Uri.parse(asset.url));
+      if (have > 0) req.headers['Range'] = 'bytes=$have-';
+      final resp = await client.send(req);
+      if (resp.statusCode != 200 && resp.statusCode != 206) throw 'download failed (${resp.statusCode})';
+      if (resp.statusCode == 200) have = 0; // the server sent it all again
+      final total = asset.size > 0 ? asset.size : (resp.contentLength ?? 0) + have;
+      var got = have;
+      final sink = part.openWrite(mode: have > 0 ? FileMode.append : FileMode.write);
+      try {
+        await for (final chunk in resp.stream) {
+          sink.add(chunk);
+          got += chunk.length;
+          if (total > 0) {
+            final p = got / total;
+            if (p - progress > 0.01) {
+              progress = p.clamp(0, 1).toDouble();
+              installMessage = 'Downloading ${(progress * 100).round()}%';
+              notifyListeners();
+            }
           }
         }
+      } finally {
+        await sink.flush();
+        await sink.close();
       }
-      await sink.flush();
-      await sink.close();
-      if (asset.size > 0 && await file.length() != asset.size) throw 'the download is incomplete';
-      installMessage = 'Installing…';
-      progress = 1;
-      notifyListeners();
-      if (Platform.isAndroid) {
-        final r = await _geo.invokeMethod<String>('installApk', {'path': file.path});
-        installMessage = r == 'permission' ? 'Allow IQRA to install apps in the settings page that opened, then tap Update again.' : 'Follow the prompt to finish updating.';
-      } else if (Platform.isWindows) {
-        final exe = Platform.resolvedExecutable.replaceAll("'", "''");
-        final setup = file.path.replaceAll("'", "''");
-        await Process.start(
-          'powershell',
-          ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Start-Sleep -Seconds 2; Start-Process -FilePath '$setup' -ArgumentList '/S' -Wait; Start-Process -FilePath '$exe'"],
-          mode: ProcessStartMode.detached,
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        exit(0);
-      }
+      if (asset.size > 0 && await part.length() != asset.size) throw 'the download was cut off at ${(100 * await part.length() / asset.size).round()}%. Tap Update to continue from there';
+      if (await file.exists()) await file.delete();
+      await part.rename(file.path);
+      await _runInstaller(file);
     } catch (e) {
-      installMessage = 'The update could not be installed ($e). You can download it from the release page.';
+      installMessage = 'The update could not finish: $e.';
     } finally {
       client.close();
       downloading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _runInstaller(File setup) async {
+    installMessage = 'Installing…';
+    progress = 1;
+    notifyListeners();
+    final exe = Platform.resolvedExecutable.replaceAll("'", "''");
+    final path = setup.path.replaceAll("'", "''");
+    await Process.start(
+      'powershell',
+      ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Start-Sleep -Seconds 2; Start-Process -FilePath '$path' -ArgumentList '/S' -Wait; Start-Process -FilePath '$exe'"],
+      mode: ProcessStartMode.detached,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    exit(0);
   }
 }

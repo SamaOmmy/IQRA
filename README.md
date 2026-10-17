@@ -15,7 +15,7 @@ Get the latest build from the [releases page](https://github.com/SamaOmmy/IQRA/r
 | **An Android phone or tablet** (almost any phone made in the last several years) | `IQRA-x.y.z-Android-arm64.apk` | The smaller file for modern 64-bit phones. |
 | An Android phone, and you are not sure | `IQRA-x.y.z-Android-all-phones.apk` | Larger, but runs on every Android phone and tablet. |
 
-The app tells you when a new version is out and updates itself with one tap (Android asks once for permission to install apps). The first time, install this version by hand. On Android, allow "install from this source" when asked. The builds are not code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
+The app tells you when a new version is out and updates itself with one tap: on Android the download is handed to the system, so it carries on when you close the app and is waiting for you to tap Install when you come back; on Windows a cut-off download carries on from where it stopped (Android asks once for permission to install apps). The first time, install this version by hand. On Android, allow "install from this source" when asked. The builds are not code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
 
 ## What it does
 
@@ -39,7 +39,7 @@ The app tells you when a new version is out and updates itself with one tap (And
 
 ## Prayer times and the adhan
 
-Times are calculated on your device from the sun's position, using the method you choose (the app picks the one most used in your country). They are estimates. If your mosque publishes a timetable, open *Prayer times*, then *Adjust minutes*, and match each prayer to it. On Android, turn on *Prayer time reminders* in Settings (and *Play the adhan*) and allow notifications when asked: each prayer is an alarm-clock alarm that plays the adhan on the alarm volume at the right minute, even when the app is closed or the phone is locked, with a Stop button. If your phone's battery saver closes apps, allow IQRA to run in the background. On Windows the reminder appears while the app is running, which can be minimised.
+Times are calculated on your device from the sun's position, using the method you choose (the app picks the one most used in your country). They are estimates. If your mosque publishes a timetable, open *Prayer times*, then *Adjust minutes*, and match each prayer to it. On Android, turn on *Prayer time reminders* in Settings (and *Play the adhan*) and allow notifications when asked: each prayer is an alarm-clock alarm that plays the adhan on the alarm volume at the right minute, even when the app is closed or the phone is locked, with a Stop button. Settings lets you choose between three adhan recordings (two of them public-domain or share-alike licensed, credited in NOTICE.md) and listen to each first. If your phone's battery saver closes apps, allow IQRA to run in the background. On Windows the reminder appears while the app is running, which can be minimised.
 
 ## Build from source
 
@@ -74,4 +74,4 @@ Translations and tafsirs other than the default are downloaded from this reposit
 
 ## License
 
-The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir, fonts and the adhan recording are third-party content under their own terms; see [NOTICE.md](NOTICE.md) for sources and attribution.
+The application code is released under the [MIT License](LICENSE). The Qur'anic text, translations, tafsir, fonts and the adhan recordings are third-party content under their own terms; see [NOTICE.md](NOTICE.md) for sources and attribution.

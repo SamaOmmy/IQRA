@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 
 import 'audio.dart';
+import 'notify.dart';
 import 'quran.dart';
 
 /// Shows what is playing in the phone's notification and on the lock screen, with play / pause, previous and next,
@@ -17,6 +18,7 @@ class IqraMediaSession extends BaseAudioHandler with SeekHandler {
   bool? _playing, _loading;
   Duration _length = Duration.zero;
   int _lastPush = 0;
+  bool _askedPermission = false;
 
   static Future<void> start(AudioController audio) async {
     if (!Platform.isAndroid) return;
@@ -42,6 +44,11 @@ class IqraMediaSession extends BaseAudioHandler with SeekHandler {
         playbackState.add(PlaybackState(processingState: AudioProcessingState.idle, playing: false));
       }
       return;
+    }
+    if (_audio.playing && !_askedPermission) {
+      // Android 13+ shows the notification and lock-screen controls only once notifications are allowed
+      _askedPermission = true;
+      PrayerNotifier.requestPermission();
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     final verseChanged = c.s != _s || c.a != _a;
