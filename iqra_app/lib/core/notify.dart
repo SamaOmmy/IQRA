@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -20,6 +21,7 @@ class PrayerNotifier {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
   static bool _exact = false;
+  static const _native = MethodChannel('iqra/adhan');
   static final List<Timer> _timers = [];
 
   static Future<void> init() async {
@@ -66,7 +68,6 @@ class PrayerNotifier {
       final a = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       try {
         _exact = (await a?.canScheduleExactNotifications()) ?? false;
-        if (!_exact && s.notifyPrayers) _exact = (await a?.requestExactAlarmsPermission()) ?? false;
       } catch (_) {
         _exact = false;
       }
@@ -108,6 +109,7 @@ class PrayerNotifier {
       }
     }
 
+    final native = <Map<String, Object>>[];
     if (s.notifyPrayers && place != null) {
       for (var d = 0; d < days; d++) {
         final date = localDate(place.tz, now.add(Duration(days: d)));
@@ -116,8 +118,26 @@ class PrayerNotifier {
           if (!s.alertPrayers.contains(k)) continue;
           final at = times[k]!;
           if (!at.isAfter(now)) continue;
-          await schedule(id++, at, '${kPrayerNames[k]} · ${kPrayerArabic[k]}', 'It is time for ${kPrayerNames[k]} in ${place.name}', 'prayer_times', adhan: s.adhan);
+          final title = '${kPrayerNames[k]} · ${kPrayerArabic[k]}', body = 'It is time for ${kPrayerNames[k]} in ${place.name}';
+          if (Platform.isAndroid) {
+            // alarm-clock alarms handled by the app itself, so the adhan rings like an alarm even when the app is closed
+            native.add({'id': id++, 'at': at.millisecondsSinceEpoch, 'title': title, 'body': body, 'adhan': s.adhan});
+          } else {
+            await schedule(id++, at, title, body, 'prayer_times', adhan: s.adhan);
+          }
         }
+      }
+    }
+
+    if (Platform.isAndroid) {
+      try {
+        if (native.isEmpty) {
+          await _native.invokeMethod('cancel');
+        } else {
+          await _native.invokeMethod('schedule', {'items': jsonEncode(native)});
+        }
+      } catch (e) {
+        debugPrint('could not schedule the adhan: $e');
       }
     }
 
@@ -144,6 +164,13 @@ class PrayerNotifier {
       await _windowsToast('IQRA', 'Prayer reminders are working.');
       if (adhan) AdhanPlayer.play();
       return;
+    }
+    if (Platform.isAndroid) {
+      await requestPermission();
+      try {
+        await _native.invokeMethod('test', {'title': 'IQRA', 'body': 'Prayer reminders are working.', 'adhan': adhan});
+        return;
+      } catch (_) {}
     }
     await init();
     if (!_ready) return;

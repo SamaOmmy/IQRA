@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import '../core/translation.dart';
 import 'mushaf.dart';
 import 'live_verse.dart';
 import 'share_card.dart';
+import 'shell.dart';
 import 'study.dart';
 import 'word_grid.dart';
 import 'widgets.dart';
@@ -56,9 +58,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   bool _wide = false;
 
+  /// dev hook: the reader on screen
+  static _ReaderScreenState? debugCurrent;
+  void debugFlip(int toPage, int ms) => _pager?.animateToPage(toPage - 1, duration: Duration(milliseconds: ms), curve: Curves.easeInOut);
+
   @override
   void initState() {
     super.initState();
+    debugCurrent = this;
+    Future.microtask(() => readerOpen.value++);
     final store = context.read<AppStore>();
     _mushaf = widget.mushaf ?? store.mushafView;
     _surah = widget.surah;
@@ -71,6 +79,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
+    if (debugCurrent == this) debugCurrent = null;
+    Future.microtask(() => readerOpen.value--);
     _markTimer?.cancel();
     _pager?.dispose();
     _focus.dispose();
@@ -174,7 +184,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         body: Stack(children: [
           Positioned.fill(
             child: Padding(
-              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56),
+              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 56, bottom: MediaQuery.of(context).padding.bottom),
               child: Row(children: [
                 Expanded(child: _mushaf ? _buildMushaf(store, audio) : _buildVerses(store, audio)),
                 if (_dock && _panel != null)
@@ -317,7 +327,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       onVerseTap: _tapVerse,
                     ),
                   );
-              return Center(
+              final content = Center(
                 child: _wide
                     ? Row(mainAxisSize: MainAxisSize.min, children: [
                         pageFor(i * 2 + 1),
@@ -326,6 +336,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       ])
                     : pageFor(i + 1),
               );
+              return _turn(i, box.maxWidth, content, store.motion);
             },
           ),
           // desktop paging arrows
@@ -336,6 +347,41 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ]),
       );
     });
+  }
+
+  /// The page-turn: while the pager moves, the book stays put and the higher page of the pair swings about the spine (on the
+  /// right edge, as in an Arabic book), turning over the page beneath it. Spreads on wide windows just fade and settle.
+  Widget _turn(int i, double viewport, Widget content, bool motion) {
+    final pc = _pager!;
+    return AnimatedBuilder(
+      animation: pc,
+      child: content,
+      builder: (_, child) {
+        if (!motion || !pc.hasClients || !pc.position.haveDimensions) return child!;
+        final d = i - (pc.page ?? i.toDouble());
+        if (d.abs() >= 1 || d == 0) return child!;
+        if (_wide) {
+          return Opacity(opacity: 1 - d.abs() * 0.55, child: Transform.scale(scale: 1 - d.abs() * 0.04, child: child));
+        }
+        final m = Matrix4.identity()
+          ..setEntry(3, 2, 0.0013)
+          ..translateByDouble(d * viewport, 0, 0, 1);
+        if (d > 0) {
+          final curve = Curves.easeInOut.transform(d);
+          m.rotateY(curve * 1.45);
+          return Transform(
+            alignment: Alignment.centerRight,
+            transform: m,
+            child: Stack(fit: StackFit.passthrough, children: [child!, Positioned.fill(child: IgnorePointer(child: ColoredBox(color: Colors.black.withValues(alpha: 0.32 * curve))))]),
+          );
+        }
+        // the page beneath: held in place, slightly dimmed as the turning page passes over it
+        return Transform(
+          transform: m,
+          child: Stack(fit: StackFit.passthrough, children: [child!, Positioned.fill(child: IgnorePointer(child: ColoredBox(color: Colors.black.withValues(alpha: 0.18 * math.min(1, -d)))))]),
+        );
+      },
+    );
   }
 
   Widget _arrow(IconData icon, VoidCallback onTap) {
@@ -423,10 +469,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => Align(
         alignment: Alignment.bottomCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: BoxConstraints(maxWidth: 560, maxHeight: MediaQuery.of(ctx).size.height * 0.88),
           child: Glass(
             blur: 40,
             opacity: 0.94,
@@ -436,7 +483,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
-                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Reading', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 12),
                     Text('Arabic size', style: TextStyle(color: c.textSecondary)),
@@ -470,7 +517,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       value: store.hifzMode,
                       onChanged: (v) => store.hifzMode = v,
                     ),
-                  ]),
+                  ])),
                 ),
               ),
             ),
@@ -611,4 +658,9 @@ class _SidePanel extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Debug builds only: lets the dev hook turn the mushaf page.
+class ReaderDebug {
+  static void flip(int toPage, int ms) => _ReaderScreenState.debugCurrent?.debugFlip(toPage, ms);
 }

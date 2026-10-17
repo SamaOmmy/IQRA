@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -15,6 +16,7 @@ import '../core/theme.dart';
 import '../core/translation.dart';
 import 'live_verse.dart';
 import 'reader.dart';
+import 'share_card.dart';
 import 'window_controls.dart';
 import 'widgets.dart';
 
@@ -184,9 +186,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   bool _lyrics = false; // phones: show the verses instead of the artwork
   bool _lyricsWide = true; // PCs: the verses sit beside the artwork, like synced lyrics
   bool _full = false;
+  bool _selecting = false; // choosing verses to share as a picture
+  final Set<int> _picked = {};
   final _items = ItemScrollController();
   final _focus = FocusNode();
-  int _lastShown = -1;
 
   @override
   void dispose() {
@@ -200,6 +203,20 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     _full = !_full;
     await windowManager.setFullScreen(_full);
     if (mounted) setState(() {});
+  }
+
+  /// The chosen verses as one picture (Arabic and translation, with the reference), ready for a status or a chat.
+  void _shareVerses(int surah) {
+    final sr = Quran.I.surah(surah);
+    final tr = context.read<TranslationModel>();
+    final list = _picked.toList()..sort();
+    final ayahs = [for (final n in list) sr.ayahs[n - 1]];
+    var consecutive = true;
+    for (var i = 1; i < list.length; i++) {
+      if (list[i] != list[i - 1] + 1) consecutive = false;
+    }
+    final ref = list.length == 1 ? '${sr.en} $surah:${list.first}' : (consecutive ? '${sr.en} $surah:${list.first}–${list.last}' : '${sr.en} $surah:${list.join(', ')}');
+    showShareCard(context, arabic: ayahs.map((a) => a.ar).join(' '), translation: ayahs.map((a) => tr.text(a)).join(' '), reference: ref);
   }
 
   KeyEventResult _key(FocusNode n, KeyEvent e, AudioController audio) {
@@ -246,18 +263,28 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     final wide = size.width > 900;
     final showLyrics = wide ? _lyricsWide : _lyrics;
 
-    if (showLyrics && _lastShown != v.a && _items.isAttached) {
-      _lastShown = v.a;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_items.isAttached) _items.scrollTo(index: v.a - 1, duration: const Duration(milliseconds: 600), curve: Curves.easeOutCubic, alignment: wide ? 0.36 : 0.3);
-      });
-    }
-
     final controls = _Controls(audio: audio, store: store);
     final art = (size.height - 470).clamp(220.0, 380.0);
     final artwork = Hero(tag: 'art', child: SurahArt(surah: v.s, size: wide ? art : 300, radius: 24));
     final text = _VerseCard(ayah: ay, translation: tr.text(ay), surahName: sr.en);
-    final lyricsView = _Lyrics(key: const ValueKey('l'), surah: v.s, current: v.a, controller: _items, tr: tr, store: store, big: wide, onPick: (a) => audio.playVerse(v.s, a, scope: audio.scope));
+    final lyricsView = _Lyrics(
+      key: const ValueKey('l'),
+      surah: v.s,
+      current: v.a,
+      controller: _items,
+      tr: tr,
+      store: store,
+      big: wide,
+      selecting: _selecting,
+      selected: _picked,
+      onPick: (a) {
+        if (_selecting) {
+          setState(() => _picked.contains(a) ? _picked.remove(a) : _picked.add(a));
+        } else {
+          audio.playVerse(v.s, a, scope: audio.scope);
+        }
+      },
+    );
 
     Widget body;
     if (wide) {
@@ -336,12 +363,57 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                     icon: Icon(showLyrics ? Icons.lyrics_rounded : Icons.lyrics_outlined, color: Colors.white),
                     tooltip: showLyrics ? 'Hide the verses' : 'Follow the verses',
                   ),
+                  IconButton(
+                    onPressed: () => setState(() {
+                      _selecting = !_selecting;
+                      _picked.clear();
+                      if (_selecting) {
+                        _picked.add(v.a);
+                        if (wide) {
+                          _lyricsWide = true;
+                        } else {
+                          _lyrics = true;
+                        }
+                      }
+                    }),
+                    icon: Icon(_selecting ? Icons.close_rounded : Icons.ios_share_rounded, color: Colors.white),
+                    tooltip: _selecting ? 'Cancel' : 'Share verses as a picture',
+                  ),
                   if (!Platform.isAndroid)
                     IconButton(onPressed: _toggleFull, icon: Icon(_full ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: Colors.white), tooltip: _full ? 'Leave full screen (F)' : 'Full screen (F)'),
                   if (Platform.isWindows && !_full) const WindowButtons(color: Colors.white),
                 ]),
               ),
-              Expanded(child: body),
+              Expanded(
+                child: Stack(children: [
+                  Positioned.fill(child: body),
+                  if (_selecting)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: wide ? 24 : 232, // above the controls on a phone
+                      child: Center(
+                        child: Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(40),
+                          elevation: 6,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(40),
+                            onTap: _picked.isEmpty ? null : () => _shareVerses(v.s),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.ios_share_rounded, size: 20, color: _picked.isEmpty ? Colors.black38 : Colors.black87),
+                                const SizedBox(width: 10),
+                                Text(_picked.isEmpty ? 'Tap the verses to share' : 'Share ${_picked.length} verse${_picked.length == 1 ? '' : 's'}', style: TextStyle(color: _picked.isEmpty ? Colors.black45 : Colors.black87, fontWeight: FontWeight.w800, fontSize: 15)),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
             ]),
           ),
         ),
@@ -360,7 +432,7 @@ class _VerseCard extends StatelessWidget {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Text('$surahName · ${ayah.surah}:${ayah.n}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
       const SizedBox(height: 14),
-      LiveVerse(ayah: ayah, fontSize: 30, color: Colors.white, activeColor: const Color(0xFFFFE9A8)),
+      LiveVerse(ayah: ayah, fontSize: 30, color: Colors.white, activeColor: Colors.white),
       if (translation.isNotEmpty) ...[
         const SizedBox(height: 10),
         Text(translation, textAlign: TextAlign.center, maxLines: 6, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.78), fontSize: 15.5, height: 1.45)),
@@ -369,8 +441,39 @@ class _VerseCard extends StatelessWidget {
   }
 }
 
-class _Lyrics extends StatelessWidget {
-  const _Lyrics({super.key, required this.surah, required this.current, required this.controller, required this.tr, required this.store, required this.onPick, this.big = false});
+/// Reports the size of its child after layout.
+class _Measure extends SingleChildRenderObjectWidget {
+  const _Measure({required this.onSize, required super.child});
+  final ValueChanged<Size> onSize;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _MeasureBox(onSize);
+
+  @override
+  void updateRenderObject(BuildContext context, covariant _MeasureBox renderObject) => renderObject.onSize = onSize;
+}
+
+class _MeasureBox extends RenderProxyBox {
+  _MeasureBox(this.onSize);
+  ValueChanged<Size> onSize;
+  Size? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_last != size) {
+      _last = size;
+      onSize(size);
+    }
+  }
+}
+
+/// The verses as synced lyrics: the playing verse is large and bright, the rest sit back, blurred. When the recitation moves
+/// to the next verse the list shifts and the lines follow one after another with a small delay, like a wave.
+class _Lyrics extends StatefulWidget {
+  const _Lyrics({super.key, required this.surah, required this.current, required this.controller, required this.tr, required this.store, required this.onPick, this.big = false, this.selecting = false, this.selected = const {}});
+  final bool selecting;
+  final Set<int> selected;
   final int surah, current;
   final ItemScrollController controller;
   final TranslationModel tr;
@@ -379,9 +482,56 @@ class _Lyrics extends StatelessWidget {
   final bool big;
 
   @override
+  State<_Lyrics> createState() => _LyricsState();
+}
+
+class _LyricsState extends State<_Lyrics> with SingleTickerProviderStateMixin {
+  late final AnimationController _wave = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000), value: 1);
+  final Map<int, double> _heights = {};
+  double _shift = 0; // how far the lines have to travel (positive: they were lower)
+  int _focus = 0; // the verse the wave is travelling towards
+
+  double get _align => widget.big ? 0.36 : 0.3;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus = widget.current;
+  }
+
+  @override
+  void didUpdateWidget(covariant _Lyrics old) {
+    super.didUpdateWidget(old);
+    if (old.current == widget.current && old.surah == widget.surah) return;
+    final c = widget.controller;
+    if (!c.isAttached) return;
+    final step = widget.current - old.current;
+    if (old.surah == widget.surah && step.abs() == 1 && widget.store.motion) {
+      // the list moves at once and every line starts from where it was, then glides into place in turn
+      final h = ((_heights[old.current] ?? 120) + (_heights[widget.current] ?? 120)) / 2;
+      _shift = step * h;
+      _focus = widget.current;
+      c.jumpTo(index: widget.current - 1, alignment: _align);
+      _wave.forward(from: 0);
+    } else if (widget.store.motion) {
+      _shift = 0;
+      c.scrollTo(index: widget.current - 1, duration: const Duration(milliseconds: 600), curve: Curves.easeOutCubic, alignment: _align);
+    } else {
+      c.jumpTo(index: widget.current - 1, alignment: _align);
+    }
+  }
+
+  @override
+  void dispose() {
+    _wave.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final sr = Quran.I.surah(surah);
-    final motion = store.motion;
+    final sr = Quran.I.surah(widget.surah);
+    final motion = widget.store.motion;
+    final big = widget.big;
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: big ? 760 : 680),
@@ -389,40 +539,61 @@ class _Lyrics extends StatelessWidget {
           blendMode: BlendMode.dstIn,
           shaderCallback: (r) => const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent], stops: [0, 0.1, 0.9, 1]).createShader(r),
           child: ScrollablePositionedList.builder(
-            itemScrollController: controller,
-            initialScrollIndex: current - 1,
-            initialAlignment: big ? 0.36 : 0.3,
+            itemScrollController: widget.controller,
+            initialScrollIndex: widget.current - 1,
+            initialAlignment: _align,
             itemCount: sr.ayahs.length,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             padding: EdgeInsets.symmetric(vertical: big ? 160 : 80, horizontal: 24),
             itemBuilder: (_, i) {
               final a = sr.ayahs[i];
-              final on = a.n == current;
-              Widget line = Padding(
-                padding: EdgeInsets.symmetric(vertical: big ? 18 : 14),
-                child: Column(children: [
-                  LiveVerse(ayah: a, fontSize: big ? 40 : 32, color: Colors.white, activeColor: const Color(0xFFFFE9A8), dimmed: on),
-                  if (store.showTranslation) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr.text(a), textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: on ? 0.95 : 0.8), fontSize: big ? 17 : 15, height: 1.45))),
-                ]),
+              final on = a.n == widget.current;
+              final picked = widget.selecting && widget.selected.contains(a.n);
+              Widget line = _Measure(
+                onSize: (z) => _heights[a.n] = z.height,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: EdgeInsets.symmetric(vertical: big ? 14 : 10, horizontal: 10),
+                  decoration: BoxDecoration(color: picked ? Colors.white.withValues(alpha: 0.2) : Colors.transparent, borderRadius: BorderRadius.circular(18)),
+                  child: Column(children: [
+                    LiveVerse(ayah: a, fontSize: big ? 40 : 32, color: Colors.white, activeColor: Colors.white, dimmed: true),
+                    if (widget.store.showTranslation) Padding(padding: const EdgeInsets.only(top: 8), child: Text(widget.tr.text(a), textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: on ? 0.95 : 0.8), fontSize: big ? 17 : 15, height: 1.45))),
+                  ]),
+                ),
               );
               if (motion) {
                 line = TweenAnimationBuilder<double>(
-                  tween: Tween(end: on ? 0 : 2.2),
+                  tween: Tween(end: (on || widget.selecting) ? 0 : 2.2),
                   duration: const Duration(milliseconds: 350),
                   builder: (_, sigma, child) => sigma < 0.05 ? child! : ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal), child: child),
                   child: line,
                 );
               }
-              return MouseRegion(
+              Widget item = MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => onPick(a.n),
+                  onTap: () => widget.onPick(a.n),
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 350),
-                    opacity: on ? 1 : 0.4,
-                    child: AnimatedScale(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic, scale: on ? 1 : 0.92, child: line),
+                    opacity: (on || widget.selecting) ? 1 : 0.4,
+                    child: AnimatedScale(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic, scale: (on || widget.selecting) ? 1 : 0.92, child: line),
                   ),
                 ),
+              );
+              if (!motion) return item;
+              return AnimatedBuilder(
+                animation: _wave,
+                child: item,
+                builder: (_, child) {
+                  if (_wave.value >= 1 || _shift == 0) return child!;
+                  // lines above the playing verse set off first; the playing verse and those below follow, each a little later
+                  final behind = (a.n - _focus).clamp(0, 8);
+                  final delay = behind * 0.05;
+                  final p = Curves.easeInOutCubic.transform(((_wave.value - delay) / (1 - delay)).clamp(0.0, 1.0));
+                  return Transform.translate(offset: Offset(0, _shift * (1 - p)), child: child);
+                },
               );
             },
           ),

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
 import '../core/audio.dart';
@@ -29,7 +30,8 @@ int currentWordIndex(List<double> weights, double progress) {
   return weights.length - 1;
 }
 
-/// A verse in Arabic that lights up word by word while it is being recited, like synced lyrics.
+/// A verse in Arabic that fills with colour word by word as it is recited, like karaoke or synced lyrics: each word is
+/// painted from its right edge to its left as the reciter says it.
 class LiveVerse extends StatefulWidget {
   const LiveVerse({super.key, required this.ayah, required this.fontSize, this.color, this.activeColor, this.height = 1.9, this.align = WrapAlignment.center, this.dimmed = true});
   final Ayah ayah;
@@ -42,14 +44,23 @@ class LiveVerse extends StatefulWidget {
   State<LiveVerse> createState() => _LiveVerseState();
 }
 
-class _LiveVerseState extends State<LiveVerse> {
+class _LiveVerseState extends State<LiveVerse> with SingleTickerProviderStateMixin {
   List<WbwWord>? _words;
   List<double> _weights = const [];
+  late final Ticker _ticker = createTicker((_) {
+    if (mounted) setState(() {});
+  });
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
   }
 
   @override
@@ -75,34 +86,43 @@ class _LiveVerseState extends State<LiveVerse> {
     final base = widget.color ?? c.text;
     final active = widget.activeColor ?? c.accent;
     final style = TextStyle(fontFamily: kArabicFont, fontSize: widget.fontSize, height: widget.height, color: base);
-    // rebuilds only when the highlighted word changes, not on every audio tick
-    final idx = context.select<AudioController, int>((au) {
+    // the frame clock runs only while this verse is the one being recited
+    final live = context.select<AudioController, bool>((au) {
       final cur = au.current;
-      final isCurrent = cur != null && cur.s == a.surah && cur.a == a.n && (au.playing || au.progress > 0);
-      if (!isCurrent || _words == null || _words!.isEmpty) return -1;
-      final exact = au.exactWord(a.surah, a.n); // the reciter's own word timing, when the recording has it
-      return exact >= 0 ? math.min(exact, _words!.length - 1) : currentWordIndex(_weights, au.progress);
+      return cur != null && cur.s == a.surah && cur.a == a.n && (au.playing || au.progress > 0);
     });
-    if (idx < 0) {
+    if (live && !_ticker.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_ticker.isActive) _ticker.start();
+      });
+    } else if (!live && _ticker.isActive) {
+      _ticker.stop();
+    }
+    if (!live || _words == null || _words!.isEmpty) {
       return Directionality(textDirection: TextDirection.rtl, child: Text(a.ar, textAlign: widget.align == WrapAlignment.center ? TextAlign.center : TextAlign.start, style: style));
     }
+    final cursor = context.read<AudioController>().wordCursor(a.surah, a.n, _weights) ?? 0;
+    final dim = base.withValues(alpha: widget.dimmed ? 0.45 : 1);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Wrap(
         alignment: widget.align,
         spacing: widget.fontSize * 0.22,
         children: [
-          for (var i = 0; i < _words!.length; i++)
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 180),
-              style: style.copyWith(
-                color: i == idx ? active : (i < idx ? base : base.withValues(alpha: widget.dimmed ? 0.5 : 1)),
-                fontWeight: i == idx ? FontWeight.w700 : FontWeight.w400,
-              ),
-              child: Text(_words![i].ar),
-            ),
+          for (var i = 0; i < _words!.length; i++) _fill(_words![i].ar, (cursor - i).clamp(0.0, 1.0), style, dim, active),
         ],
       ),
+    );
+  }
+
+  Widget _fill(String text, double f, TextStyle style, Color dim, Color done) {
+    if (f <= 0) return Text(text, style: style.copyWith(color: dim));
+    if (f >= 1) return Text(text, style: style.copyWith(color: done));
+    // right to left, with a soft edge
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (r) => LinearGradient(begin: Alignment.centerRight, end: Alignment.centerLeft, colors: [done, done, dim, dim], stops: [0, math.max(0, f - 0.12), math.min(1, f + 0.12), 1]).createShader(r),
+      child: Text(text, style: style.copyWith(color: Colors.white)),
     );
   }
 }

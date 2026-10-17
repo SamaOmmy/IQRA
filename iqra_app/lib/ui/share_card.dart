@@ -32,6 +32,7 @@ class _ShareCardDialog extends StatefulWidget {
 class _ShareCardDialogState extends State<_ShareCardDialog> {
   final _key = GlobalKey();
   int _style = 0;
+  int _format = 0; // 0 post (4:5), 1 story (9:16, for WhatsApp status and Instagram stories)
   bool _busy = false;
 
   Future<File> _render() async {
@@ -94,10 +95,15 @@ class _ShareCardDialogState extends State<_ShareCardDialog> {
               borderRadius: BorderRadius.circular(20),
               child: RepaintBoundary(
                 key: _key,
-                child: _Card(arabic: widget.arabic, translation: widget.translation, reference: widget.reference, seed: _styles[_style].$2),
+                child: _Card(arabic: widget.arabic, translation: widget.translation, reference: widget.reference, seed: _styles[_style].$2, aspect: _format == 0 ? 4 / 5 : 9 / 16),
               ),
             ),
             const SizedBox(height: 14),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              Pill('Post', selected: _format == 0, onTap: () => setState(() => _format = 0)),
+              Pill('Story / status', selected: _format == 1, onTap: () => setState(() => _format = 1)),
+            ]),
+            const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (var i = 0; i < _styles.length; i++) Pill(_styles[i].$1, selected: _style == i, onTap: () => setState(() => _style = i)),
             ]),
@@ -122,15 +128,16 @@ class _ShareCardDialogState extends State<_ShareCardDialog> {
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.arabic, required this.translation, required this.reference, required this.seed});
+  const _Card({required this.arabic, required this.translation, required this.reference, required this.seed, this.aspect = 4 / 5});
   final String arabic, translation, reference;
   final int seed;
+  final double aspect;
 
   @override
   Widget build(BuildContext context) {
     final (a, b) = artColors(seed * 5 + 2);
     return AspectRatio(
-      aspectRatio: 4 / 5,
+      aspectRatio: aspect,
       child: Container(
         decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [a, b])),
         child: Stack(children: [

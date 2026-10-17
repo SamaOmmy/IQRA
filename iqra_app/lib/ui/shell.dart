@@ -24,6 +24,9 @@ import 'tools/tools.dart';
 import 'window_controls.dart';
 import 'widgets.dart';
 
+/// How many readers are open: while the Qur'an is on screen on a phone, the tab bar and mini player slide away so the last lines are never covered.
+final ValueNotifier<int> readerOpen = ValueNotifier(0);
+
 enum Section { today, read, listen, discover, tools, library, search, settings }
 
 const _meta = <Section, (String, IconData, IconData)>{
@@ -247,7 +250,13 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
           left: 0,
           right: 0,
           bottom: 0,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          child: ValueListenableBuilder<int>(
+            valueListenable: readerOpen,
+            builder: (context, open, child) => IgnorePointer(
+              ignoring: open > 0,
+              child: AnimatedSlide(offset: open > 0 ? const Offset(0, 1.2) : Offset.zero, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic, child: child),
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
             const MiniPlayer(),
             Glass(
               blur: 30,
@@ -285,6 +294,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
               ),
             ),
           ]),
+          ),
         ),
       ]),
     );

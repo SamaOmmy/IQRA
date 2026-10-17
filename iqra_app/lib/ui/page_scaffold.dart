@@ -103,6 +103,7 @@ class _TitleDelegate extends SliverPersistentHeaderDelegate {
       maxScaleFactor: 1.12,
       child: Stack(
         children: [
+          if (t > 0.02) // nothing to blur until the page has scrolled under the bar
           Positioned.fill(
             child: Opacity(
               opacity: t > 0.85 ? 1 : t * 0.9,

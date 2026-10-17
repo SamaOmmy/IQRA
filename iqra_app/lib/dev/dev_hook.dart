@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -74,6 +75,26 @@ class DevHook {
         if (ctx != null) Navigator.of(ctx).push(WidgetsPageRoute(ShelfScreen(id: p[1])));
       case 'play':
         if (ctx != null) await ctx.read<AudioController>().playVerse(int.parse(p[1]), int.parse(p[2]));
+      case 'tap':
+        {
+          final pos = Offset(double.parse(p[1]), double.parse(p[2]));
+          final id = 900 + DateTime.now().millisecond;
+          GestureBinding.instance.handlePointerEvent(PointerAddedEvent(position: pos));
+          GestureBinding.instance.handlePointerEvent(PointerDownEvent(position: pos, pointer: id));
+          await Future<void>.delayed(const Duration(milliseconds: 90));
+          GestureBinding.instance.handlePointerEvent(PointerUpEvent(position: pos, pointer: id));
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      case 'scroll':
+        {
+          final pos = Offset(double.parse(p[1]), double.parse(p[2]));
+          GestureBinding.instance.handlePointerEvent(PointerScrollEvent(position: pos, scrollDelta: Offset(0, double.parse(p[3]))));
+          await Future<void>.delayed(const Duration(milliseconds: 700));
+        }
+      case 'flip':
+        ReaderDebug.flip(int.parse(p[1]), int.parse(p[2]));
+      case 'wait':
+        await Future<void>.delayed(Duration(milliseconds: int.parse(p[1])));
       case 'status':
         if (ctx != null) {
           final au = ctx.read<AudioController>();

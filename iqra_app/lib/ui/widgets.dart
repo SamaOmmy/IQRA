@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -26,17 +27,16 @@ class Glass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    Widget w = BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: (color ?? c.bg).withValues(alpha: opacity),
-          borderRadius: radius,
-          border: border ? Border.all(color: c.separator.withValues(alpha: 0.7)) : null,
-        ),
-        child: Material(type: MaterialType.transparency, child: child),
+    final phone = Platform.isAndroid; // a live blur over scrolling content costs a frame on phones: use a nearly solid surface there
+    final box = DecoratedBox(
+      decoration: BoxDecoration(
+        color: (color ?? c.bg).withValues(alpha: phone ? math.max(opacity, 0.95) : opacity),
+        borderRadius: radius,
+        border: border ? Border.all(color: c.separator.withValues(alpha: 0.7)) : null,
       ),
+      child: Material(type: MaterialType.transparency, child: child),
     );
+    Widget w = phone ? box : BackdropFilter(filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur), child: box);
     w = radius != null ? ClipRRect(borderRadius: radius!, child: w) : ClipRect(child: w);
     return w;
   }
@@ -206,7 +206,7 @@ class SurahArt extends StatelessWidget {
     final (a, b) = artColors(surah * 5 + 2);
     final s = Quran.I.surah(surah);
     final r = radius ?? size * 0.1;
-    return Container(
+    return RepaintBoundary(child: Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -266,7 +266,7 @@ class SurahArt extends StatelessWidget {
           ),
         ]),
       ),
-    );
+    ));
   }
 }
 
@@ -553,10 +553,12 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
     return AnimatedBuilder(
       animation: curve,
       child: widget.child,
-      builder: (_, child) => Opacity(
-        opacity: curve.value,
-        child: Transform.translate(offset: Offset(0, (1 - curve.value) * widget.dy), child: child),
-      ),
+      builder: (_, child) => curve.value >= 1
+          ? child!
+          : Opacity(
+              opacity: curve.value,
+              child: Transform.translate(offset: Offset(0, (1 - curve.value) * widget.dy), child: child),
+            ),
     );
   }
 }

@@ -15,6 +15,7 @@ import 'core/quran.dart';
 import 'core/store.dart';
 import 'core/theme.dart';
 import 'core/translation.dart';
+import 'core/media_session.dart';
 import 'core/updates.dart';
 import 'dev/dev_hook.dart';
 import 'ui/shell.dart';
@@ -83,7 +84,13 @@ class _BootstrapState extends State<Bootstrap> {
         return MultiProvider(
           providers: [
             ChangeNotifierProvider<AppStore>.value(value: widget.store),
-            ChangeNotifierProvider<AudioController>(create: (_) => AudioController(widget.store)),
+            ChangeNotifierProvider<AudioController>(
+              create: (_) {
+                final audio = AudioController(widget.store);
+                IqraMediaSession.start(audio); // the notification and lock-screen controls on Android
+                return audio;
+              },
+            ),
             ChangeNotifierProvider<TranslationModel>(create: (_) => TranslationModel(widget.store)),
             ChangeNotifierProvider<DownloadManager>(create: (_) => DownloadManager()),
             ChangeNotifierProvider<UpdateChecker>(create: (_) => UpdateChecker()),
@@ -164,6 +171,14 @@ class IqraApp extends StatelessWidget {
 
 class _Scroll extends MaterialScrollBehavior {
   const _Scroll();
+
+  // the same soft, springy scrolling on every platform, and no stretch glow or scrollbars on phones
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => Platform.isAndroid ? child : super.buildScrollbar(context, child, details);
   @override
   Set<PointerDeviceKind> get dragDevices => {PointerDeviceKind.touch, PointerDeviceKind.mouse, PointerDeviceKind.trackpad, PointerDeviceKind.stylus};
 }

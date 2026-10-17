@@ -31,6 +31,9 @@ class AudioController extends ChangeNotifier {
       } else {
         position = p;
       }
+      _clock
+        ..reset()
+        ..start();
       notifyListeners();
     }));
     _subs.add(player.stream.duration.listen((d) {
@@ -80,6 +83,52 @@ class AudioController extends ChangeNotifier {
   String? _trackReciter;
   int _rawMs = 0;
   bool get connected => _track != null;
+
+  final Stopwatch _clock = Stopwatch();
+
+  /// Where playback is inside the current verse right now: the last reported position plus the time since it was reported,
+  /// so words can be lit smoothly between the player's position updates.
+  Duration get livePosition {
+    if (!playing || !_clock.isRunning) return position;
+    final p = position + Duration(milliseconds: (_clock.elapsedMilliseconds * store.speed).round());
+    return duration > Duration.zero && p > duration ? duration : p;
+  }
+
+  /// How far the recitation has got through the words of this verse, in words (3.4 = forty per cent through the fourth word).
+  /// Uses the reciter's own word timing when the recording has it, otherwise an estimate from word lengths. Null if not playing this verse.
+  double? wordCursor(int surah, int ayah, List<double> weights) {
+    final c = current;
+    if (c == null || c.s != surah || c.a != ayah || weights.isEmpty) return null;
+    final live = livePosition;
+    final t = _track;
+    if (t != null) {
+      final segs = t.words[ayah - 1];
+      if (segs.isNotEmpty) {
+        final ms = t.from[ayah - 1] + live.inMilliseconds;
+        var cursor = 0.0;
+        for (final s in segs) {
+          final i = s[0] - 1;
+          if (ms >= s[2]) {
+            cursor = math.max(cursor, i + 1.0);
+          } else if (ms >= s[1]) {
+            cursor = math.max(cursor, i + (ms - s[1]) / math.max(1, s[2] - s[1]));
+          }
+        }
+        return cursor.clamp(0, weights.length.toDouble()).toDouble();
+      }
+    }
+    if (duration.inMilliseconds <= 0) return 0;
+    final total = weights.fold<double>(0, (a, b) => a + b);
+    // the recording has a little silence before and after the words
+    final p = ((live.inMilliseconds / duration.inMilliseconds - 0.035) / 0.93).clamp(0.0, 1.0);
+    var acc = 0.0;
+    for (var i = 0; i < weights.length; i++) {
+      final w = weights[i] / total;
+      if (p < acc + w) return i + (p - acc) / w;
+      acc += w;
+    }
+    return weights.length.toDouble();
+  }
 
   /// Index of the word being recited in this verse, from the reciter's own timing, or -1 when only an estimate is possible.
   int exactWord(int surah, int ayah) {

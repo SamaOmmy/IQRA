@@ -6,14 +6,37 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
+import org.json.JSONArray
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // The call to prayer: alarms that start the adhan service (see Adhan.kt).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iqra/adhan").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "schedule" -> {
+                    AdhanScheduler.schedule(this, JSONArray(call.argument<String>("items") ?: "[]"))
+                    result.success(true)
+                }
+                "cancel" -> {
+                    AdhanScheduler.cancelAll(this)
+                    result.success(true)
+                }
+                "test" -> {
+                    AdhanScheduler.start(this, 9, call.argument<String>("title") ?: "IQRA", call.argument<String>("body") ?: "Prayer reminders are working.", call.argument<Boolean>("adhan") ?: true)
+                    result.success(true)
+                }
+                "stop" -> {
+                    startService(android.content.Intent(this, AdhanService::class.java).setAction("STOP"))
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iqra/geo").setMethodCallHandler { call, result ->
             when (call.method) {
                 // Magnetic declination (the angle between magnetic and true north) for a place, from the device's own world magnetic model.
