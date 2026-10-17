@@ -9,6 +9,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'quran.dart';
+
 const kRepo = 'SamaOmmy/IQRA';
 const _geo = MethodChannel('iqra/geo');
 const _dl = MethodChannel('iqra/download');
@@ -41,6 +43,9 @@ class UpdateChecker extends ChangeNotifier {
   bool _installWhenDone = false;
 
   bool get available => latest != null && current.isNotEmpty && _newer(latest!, current);
+
+  /// A personal copy (it carries the licensed mushaf fonts): the public update does not have them, so it must never replace this one.
+  bool get personal => Quran.I.hasQcf;
 
   static bool _newer(String a, String b) {
     List<int> p(String s) => s.split('.').map((x) => int.tryParse(x.replaceAll(RegExp(r'\D'), '')) ?? 0).toList();
@@ -76,8 +81,8 @@ class UpdateChecker extends ChangeNotifier {
           for (final a in (j['assets'] as List? ?? const []))
             _Asset((a as Map)['name'] as String, a['browser_download_url'] as String, (a['size'] as num?)?.toInt() ?? 0),
         ];
-        message = available ? 'Version $latest is available.' : 'You have the latest version.';
-        if (available) unawaited(resumePending());
+        message = available ? (personal ? 'Version $latest is out. This copy includes the licensed fonts, so it is updated from your PC (a new personal build), not from here.' : 'Version $latest is available.') : 'You have the latest version.';
+        if (available && !personal) unawaited(resumePending());
       } else {
         message = 'Could not check for updates.';
       }
@@ -92,7 +97,7 @@ class UpdateChecker extends ChangeNotifier {
 
   /// True when the update can be installed from inside the app (otherwise the release page is opened).
   bool get canInstallHere {
-    if (_assets.isEmpty) return false;
+    if (_assets.isEmpty || personal) return false;
     if (Platform.isAndroid) return true;
     // a portable copy is not replaced by the installer, so it is sent to the download page instead
     if (Platform.isWindows) return Platform.resolvedExecutable.toLowerCase().contains(r'\programs\iqra\');
@@ -198,7 +203,7 @@ class UpdateChecker extends ChangeNotifier {
 
   /// Downloads the new version and starts installing it.
   Future<void> install() async {
-    if (downloading) return;
+    if (downloading || personal) return;
     if (Platform.isAndroid && readyPath != null && File(readyPath!).existsSync()) {
       await _installApk(readyPath!);
       return;

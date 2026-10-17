@@ -6,12 +6,14 @@ import 'package:media_kit/media_kit.dart';
 class AdhanPlayer {
   static Player? _player;
 
-  static const files = ['adhan.mp3', 'adhan_2.ogg', 'adhan_3.ogg'];
+  static const names = ['Madinah', 'Casablanca', 'Ramadan', 'Calm', 'Classic'];
 
-  static Future<void> play({int sound = 2}) async {
+  /// [sound] 1..5 is one of the recordings; 0 plays the file at [file] (one the person picked).
+  static Future<void> play({int sound = 1, String? file}) async {
     try {
       _player ??= Player();
-      await _player!.open(Media('asset:///assets/audio/${files[(sound - 1).clamp(0, files.length - 1)]}'));
+      final src = sound == 0 && file != null ? Media(file) : Media('asset:///assets/audio/adhan_${sound.clamp(1, 5)}.ogg');
+      await _player!.open(src);
     } catch (e) {
       debugPrint('could not play the adhan: $e');
     }

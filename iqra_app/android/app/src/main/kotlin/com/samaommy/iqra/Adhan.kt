@@ -101,6 +101,7 @@ class AdhanBootReceiver : BroadcastReceiver() {
 
 class AdhanService : Service() {
     private var player: MediaPlayer? = null
+    private var boost: android.media.audiofx.LoudnessEnhancer? = null
     private var wake: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -137,19 +138,31 @@ class AdhanService : Service() {
         }
         try {
             wake = (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "iqra:adhan").apply { acquire(6 * 60 * 1000L) }
-            // the recording chosen in Settings (1 is the first one, the others are adhan_2, adhan_3)
-            val n = getSharedPreferences("iqra_adhan", Context.MODE_PRIVATE).getInt("sound", 2)
-            var res = resources.getIdentifier(if (n <= 1) "adhan" else "adhan_$n", "raw", packageName)
-            if (res == 0) res = R.raw.adhan
-            val afd = resources.openRawResourceFd(res)
+            // the recording chosen in Settings (adhan_1 .. adhan_5), or a file the person picked (sound 0)
+            val prefs = getSharedPreferences("iqra_adhan", Context.MODE_PRIVATE)
+            val n = prefs.getInt("sound", 1)
+            val custom = prefs.getString("path", null)
             player?.release()
             player = MediaPlayer().apply {
                 setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
+                if (n == 0 && custom != null && java.io.File(custom).exists()) {
+                    setDataSource(custom)
+                } else {
+                    var res = resources.getIdentifier("adhan_${if (n in 1..5) n else 1}", "raw", packageName)
+                    if (res == 0) res = R.raw.adhan_1
+                    val afd = resources.openRawResourceFd(res)
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                }
+                setVolume(1f, 1f)
                 setOnCompletionListener { finish(null) }
                 setOnErrorListener { _, _, _ -> finish(null); true }
                 prepare()
+                try {
+                    // a little extra loudness, so the call carries across the house
+                    boost = android.media.audiofx.LoudnessEnhancer(audioSessionId).apply { setTargetGain(450); enabled = true }
+                } catch (_: Exception) {
+                }
                 start()
             }
         } catch (_: Exception) {
@@ -159,6 +172,11 @@ class AdhanService : Service() {
     }
 
     private fun finish(@Suppress("UNUSED_PARAMETER") x: Any?) {
+        try {
+            boost?.release()
+        } catch (_: Exception) {
+        }
+        boost = null
         try {
             player?.stop()
         } catch (_: Exception) {

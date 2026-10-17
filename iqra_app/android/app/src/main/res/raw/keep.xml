@@ -1,2 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/adhan*" />
+<!-- Resources that the code refers to by name (the notification icons for audio_service and the adhan recordings) must not be stripped from release builds. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+  tools:keep="@drawable/*,@raw/*,@mipmap/*" />

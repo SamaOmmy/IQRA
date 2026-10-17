@@ -53,7 +53,9 @@ class MainActivity : AudioServiceActivity() {
                     result.success(true)
                 }
                 "setSound" -> {
-                    getSharedPreferences("iqra_adhan", MODE_PRIVATE).edit().putInt("sound", call.argument<Int>("n") ?: 2).apply()
+                    val e = getSharedPreferences("iqra_adhan", MODE_PRIVATE).edit().putInt("sound", call.argument<Int>("n") ?: 1)
+                    call.argument<String>("path")?.let { e.putString("path", it) }
+                    e.apply()
                     result.success(true)
                 }
                 "stop" -> {
@@ -87,6 +89,16 @@ class MainActivity : AudioServiceActivity() {
                     val lon = (call.argument<Double>("lon") ?: 0.0).toFloat()
                     val field = GeomagneticField(lat, lon, 0f, System.currentTimeMillis())
                     result.success(field.declination.toDouble())
+                }
+                // Whether notifications are allowed for the app (Android 13+ starts with them off), and the system pages to change that.
+                "notificationsEnabled" -> result.success(androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled())
+                "openNotificationSettings" -> {
+                    startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
+                }
+                "openBatterySettings" -> {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
                 }
                 // The processor types this phone supports, to pick the right APK when updating.
                 "abis" -> result.success(Build.SUPPORTED_ABIS.toList())

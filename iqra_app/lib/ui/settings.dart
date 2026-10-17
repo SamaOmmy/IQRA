@@ -1,8 +1,14 @@
+import 'dart:io' show File, Platform;
+
+import 'package:file_selector/file_selector.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/phone.dart';
+import '../core/media_session.dart';
 import '../core/adhan.dart';
 import '../core/notify.dart';
 import '../core/prayer.dart';
@@ -115,6 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SwitchListTile(title: const Text('Continue to the next surah'), value: s.continuous, onChanged: (v) => s.continuous = v),
             SwitchListTile(title: const Text('Play surahs as one connected recording'), subtitle: const Text('No pauses between verses, as the reciter delivered it. Needs an internet connection; reciters without a full recording, and repeating a verse, use the verse files.'), value: s.wholeSurah, onChanged: (v) => s.wholeSurah = v),
+            if (Platform.isAndroid) const _PhoneControlsTile(),
             ListTile(title: const Text('Downloads'), subtitle: const Text('Recitations and tafsir for offline use'), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => push(const DownloadsScreen())),
           ]),
         ),
@@ -170,24 +177,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('Adhan sound', style: TextStyle(fontSize: 16)),
                   const SizedBox(height: 8),
-                  Segmented(
-                    items: const ['Adhan 1', 'Adhan 2', 'Adhan 3'],
-                    index: s.adhanSound - 1,
-                    onChanged: (i) {
-                      s.adhanSound = i + 1;
-                      PrayerNotifier.setSound(i + 1);
-                      AdhanPlayer.play(sound: i + 1);
-                    },
-                  ),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (var i = 0; i < AdhanPlayer.names.length; i++)
+                      ChoiceChip(
+                        label: Text(AdhanPlayer.names[i]),
+                        selected: s.adhanSound == i + 1,
+                        showCheckmark: false,
+                        selectedColor: context.c.accent.withValues(alpha: 0.2),
+                        onSelected: (_) {
+                          s.adhanSound = i + 1;
+                          PrayerNotifier.setSound(i + 1);
+                          AdhanPlayer.play(sound: i + 1);
+                        },
+                      ),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.folder_open_rounded, size: 18),
+                      label: Text(s.adhanSound == 0 && s.adhanFile != null ? 'My own' : 'Choose my own…'),
+                      selected: s.adhanSound == 0,
+                      showCheckmark: false,
+                      selectedColor: context.c.accent.withValues(alpha: 0.2),
+                      onSelected: (_) => _pickOwnAdhan(context, s),
+                    ),
+                  ]),
                   const SizedBox(height: 6),
                   Row(children: [
                     Expanded(
                       child: Text(
-                        const ['Recording: Aaqib Azeez (CC BY-SA 4.0), via Wikimedia Commons', 'Recording: "Beautiful adhan" by Adam-synagda (CC0), via Wikimedia Commons', 'Recording: "Azan" by Andrewler (CC BY-SA 4.0), via Wikimedia Commons'][s.adhanSound - 1],
+                        const [
+                          'Madinah: the call to prayer from the Prophet\'s Mosque, by ejaz215 (CC BY 3.0)',
+                          'Casablanca: the Hassan II Mosque, by Fraguando (CC BY-SA 4.0)',
+                          'Ramadan: a mosque call during Ramadan, by daSupremo (CC BY-SA 4.0)',
+                          'Calm: "Beautiful adhan" by Adam-synagda (CC0)',
+                          'Classic: recorded by Aaqib Azeez (CC BY-SA 4.0)',
+                        ][(s.adhanSound - 1).clamp(0, 4)],
                         style: TextStyle(color: context.c.textSecondary, fontSize: 12.5),
                       ),
                     ),
-                    IconButton(onPressed: () => AdhanPlayer.play(sound: s.adhanSound), tooltip: 'Listen', icon: const Icon(Icons.play_circle_outline_rounded)),
+                    IconButton(onPressed: () => AdhanPlayer.play(sound: s.adhanSound, file: s.adhanFile), tooltip: 'Listen', icon: const Icon(Icons.play_circle_outline_rounded)),
                     IconButton(onPressed: AdhanPlayer.stop, tooltip: 'Stop', icon: const Icon(Icons.stop_circle_outlined)),
                   ]),
                 ]),
@@ -207,7 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _pickVerseTime(context),
             ),
             if ((s.notifyPrayers && s.place != null) || s.dailyVerseAt >= 0)
-              ListTile(title: const Text('Send a test notification'), trailing: const Icon(Icons.notifications_active_outlined), onTap: () => PrayerNotifier.test(adhan: s.adhan, sound: s.adhanSound)),
+              ListTile(title: const Text('Send a test notification'), trailing: const Icon(Icons.notifications_active_outlined), onTap: () => PrayerNotifier.test(adhan: s.adhan, sound: s.adhanSound, file: s.adhanFile)),
           ]),
         ),
         SliverToBoxAdapter(
@@ -424,5 +450,101 @@ class _ThemeChip extends StatelessWidget {
         Text(name, style: TextStyle(fontSize: 12, fontWeight: selected ? FontWeight.w800 : FontWeight.w500)),
       ]),
     );
+  }
+}
+
+
+/// Android: shows whether the lock-screen / notification controls can appear, and fixes the usual reasons with one tap.
+/// Lets the person use any audio file from the device as the adhan (copied into the app, so it keeps working).
+Future<void> _pickOwnAdhan(BuildContext context, AppStore s) async {
+  try {
+    final file = await openFile(acceptedTypeGroups: const [XTypeGroup(label: 'Audio', extensions: ['mp3', 'ogg', 'm4a', 'wav', 'aac', 'opus', 'flac'])]);
+    if (file == null) return;
+    final dir = await getApplicationSupportDirectory();
+    final ext = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : 'mp3';
+    final dest = File('${dir.path}${Platform.pathSeparator}adhan_own.$ext');
+    await dest.writeAsBytes(await file.readAsBytes(), flush: true);
+    s.adhanFile = dest.path;
+    s.adhanSound = 0;
+    PrayerNotifier.setSound(0, path: dest.path);
+    AdhanPlayer.play(sound: 0, file: dest.path);
+  } catch (e) {
+    if (context.mounted) showToast(context, 'Could not use that file ($e)');
+  }
+}
+
+class _PhoneControlsTile extends StatefulWidget {
+  const _PhoneControlsTile();
+
+  @override
+  State<_PhoneControlsTile> createState() => _PhoneControlsTileState();
+}
+
+class _PhoneControlsTileState extends State<_PhoneControlsTile> with WidgetsBindingObserver {
+  bool? _allowed;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check(); // back from the system settings page
+  }
+
+  Future<void> _check() async {
+    final on = await PhoneSetup.notificationsOn();
+    if (mounted) setState(() => _allowed = on);
+  }
+
+  Future<void> _fix() async {
+    if (_allowed == false) {
+      await PrayerNotifier.requestPermission();
+      await _check();
+      if (_allowed == false) await PhoneSetup.openNotificationSettings(); // the system will not ask again: open its page
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      ValueListenableBuilder<String>(
+        valueListenable: IqraMediaSession.status,
+        builder: (_, st, __) {
+          final off = _allowed == false;
+          final failed = st.startsWith('Could not');
+          return ListTile(
+            leading: Icon(off || failed ? Icons.notifications_off_rounded : Icons.lock_clock_rounded, color: off || failed ? Colors.orange : c.accent),
+            title: const Text('Lock-screen and notification controls'),
+            subtitle: Text(
+              failed
+                  ? 'Not available: ${st.replaceFirst('Could not start: ', '')}'
+                  : off
+                      ? 'Notifications are off for IQRA, so the controls cannot show. Tap to turn them on.'
+                      : 'On: while a recitation plays you can pause, skip and bookmark from the lock screen and the notification.',
+            ),
+            trailing: off ? const Icon(Icons.chevron_right_rounded) : null,
+            onTap: off ? _fix : null,
+          );
+        },
+      ),
+      ListTile(
+        leading: Icon(Icons.battery_saver_rounded, color: c.accent),
+        title: const Text('Keep playing in the background'),
+        subtitle: const Text('If your phone stops the recitation, or misses the adhan, when the screen is off: open this page and set IQRA to Unrestricted (or Do not optimise).'),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: PhoneSetup.openBatterySettings,
+      ),
+    ]);
   }
 }

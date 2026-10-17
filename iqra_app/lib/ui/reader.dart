@@ -267,7 +267,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final c = context.c;
     final store = context.watch<AppStore>();
     final audio = context.watch<AudioController>();
-    final surahForPage = Quran.I.pageWords(_page).first.surah;
+    final pageWordsNow = Quran.I.pageWords(_page);
+    final midNow = pageWordsNow[pageWordsNow.length ~/ 2]; // the verse in the middle of the page names it, as on the page itself
+    final surahForPage = midNow.surah;
     final headerSurah = _mushaf ? surahForPage : _surah;
     final sr = Quran.I.surah(headerSurah);
     final focus = store.readerFocus && _mushaf;
@@ -322,7 +324,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         onTap: _mushaf ? _askPage : null,
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Text(sr.en, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, letterSpacing: -0.2)),
-                        Text(_mushaf ? 'Page $_page · Juz ${Quran.I.ayah(Quran.I.pageWords(_page).first.surah, Quran.I.pageWords(_page).first.ayah).juz}' : '${sr.meaning} · ${sr.ayahs.length} verses',
+                        Text(_mushaf ? 'Page $_page · Juz ${Quran.I.ayah(midNow.surah, midNow.ayah).juz}' : '${sr.meaning} · ${sr.ayahs.length} verses',
                             style: TextStyle(fontSize: 12, color: c.textSecondary)),
                         ]),
                       ),
@@ -470,6 +472,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           onChanged: _onSheet,
           page: (p) => MushafPage(
             page: p,
+            flat: !wide && box.maxWidth < 700,
             playing: audio.current,
             selected: _selected,
             fontScale: 1,

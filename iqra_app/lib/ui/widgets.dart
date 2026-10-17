@@ -109,8 +109,8 @@ const _artPalette = <(Color, Color)>[
 (Color, Color) artColors(int seed) => _artPalette[seed % _artPalette.length];
 
 /// Decorative geometric patterns for artwork. Each surah gets one of them, chosen by its number.
-class _PatternPainter extends CustomPainter {
-  _PatternPainter(this.kind, this.color);
+class ArtPatternPainter extends CustomPainter {
+  ArtPatternPainter(this.kind, this.color);
   final int kind;
   final Color color;
 
@@ -191,7 +191,7 @@ class _PatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PatternPainter old) => old.kind != kind || old.color != color;
+  bool shouldRepaint(covariant ArtPatternPainter old) => old.kind != kind || old.color != color;
 }
 
 /// A surah's "album cover": gradient, geometric pattern, number and calligraphy.
@@ -220,7 +220,7 @@ class SurahArt extends StatelessWidget {
           Positioned.fill(child: CustomPaint(painter: GradientPainter.linear([a, b]))),
           // soft light from the top corner
           Positioned.fill(child: CustomPaint(painter: GradientPainter.radial([Colors.white.withValues(alpha: 0.22), Colors.transparent], center: const Alignment(-0.7, -0.9), spread: 1.2))),
-          Positioned.fill(child: CustomPaint(painter: _PatternPainter(surah, Colors.white.withValues(alpha: 0.2)))),
+          Positioned.fill(child: CustomPaint(painter: ArtPatternPainter(surah, Colors.white.withValues(alpha: 0.2)))),
           // a large faint copy of the name behind everything
           if (showName && size > 90)
             Positioned(
@@ -376,7 +376,7 @@ class ColorTile extends StatelessWidget {
         child: Stack(children: [
           Positioned.fill(child: CustomPaint(painter: GradientPainter.linear([a, b]))),
           Positioned.fill(child: CustomPaint(painter: GradientPainter.radial([Colors.white.withValues(alpha: 0.2), Colors.transparent], center: const Alignment(-0.8, -1), spread: 1.3))),
-          Positioned.fill(child: CustomPaint(painter: _PatternPainter(seed, Colors.white.withValues(alpha: 0.16)))),
+          Positioned.fill(child: CustomPaint(painter: ArtPatternPainter(seed, Colors.white.withValues(alpha: 0.16)))),
           child,
         ]),
       ),

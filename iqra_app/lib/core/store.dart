@@ -297,7 +297,7 @@ class AppStore extends ChangeNotifier {
   static const _backupKeys = [
     'bookmarks', 'favs', 'notes', 'memorised', 'pagesRead', 'days', 'khatams', 'salah', 'storiesRead', 'plan', 'goal',
     'tasbihTotal', 'tasbihTarget', 'quizBest', 'recentSurahs', 'theme', 'accent', 'tr1', 'tafsir', 'reciter', 'place', 'pmethod',
-    'hanafi', 'adhanSound', 'clock24', 'arSize', 'trSize', 'showTr', 'motion', 'review', 'dailyVerseAt', 'translit', 'planRead', 'adhan', 'padj', 'alertp', 'hadj', 'whole',
+    'hanafi', 'adhanSound', 'adhanFile', 'clock24', 'arSize', 'trSize', 'showTr', 'motion', 'review', 'dailyVerseAt', 'translit', 'planRead', 'adhan', 'padj', 'alertp', 'hadj', 'whole',
   ];
 
   String exportBackup() => jsonEncode({'app': 'IQRA', 'version': 1, 'data': {for (final k in _backupKeys) if (_j.containsKey(k)) k: _j[k]}});
@@ -357,9 +357,11 @@ class AppStore extends ChangeNotifier {
   set wholeSurah(bool v) => _set('whole', v);
   bool get adhan => _get('adhan', true);
   set adhan(bool v) => _set('adhan', v);
-  /// Which recording of the adhan: 1 Aaqib Azeez, 2 "Beautiful adhan" (CC0), 3 "Azan" (CC BY-SA 4.0).
-  int get adhanSound => _get<num>('adhanSound', 2).toInt().clamp(1, 3);
+  /// Which adhan: 1 Madinah, 2 Casablanca, 3 Ramadan, 4 Calm, 5 Classic, or 0 for a file the person picked (see [adhanFile]).
+  int get adhanSound => _get<num>('adhanSound', 1).toInt().clamp(0, 5);
   set adhanSound(int v) => _set('adhanSound', v);
+  String? get adhanFile => _get<String?>('adhanFile', null);
+  set adhanFile(String? v) => _set('adhanFile', v);
 
   // ---- daily verse reminder ----
   /// minutes after midnight, or -1 for off

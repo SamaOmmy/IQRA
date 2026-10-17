@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,6 @@ import 'package:flutter/services.dart';
 
 import '../core/quran.dart';
 import '../core/theme.dart';
-import 'gradients.dart';
 import 'widgets.dart';
 
 /// Loads the authentic per-page mushaf fonts on demand (only present in builds that include them).
@@ -35,7 +35,10 @@ typedef VerseTap = void Function(int surah, int ayah, int page);
 
 /// One printed page of the Madani mushaf: 15 lines (8 on the first two pages), laid out like the book.
 class MushafPage extends StatefulWidget {
-  const MushafPage({super.key, required this.page, this.onVerseTap, this.playing, this.selected, this.fontScale = 1});
+  const MushafPage({super.key, required this.page, this.onVerseTap, this.playing, this.selected, this.fontScale = 1, this.flat = false});
+
+  /// Edge to edge, as on a phone: no frame, rounded corners or shadow around the page.
+  final bool flat;
   final int page;
   final VerseTap? onVerseTap;
   final VerseRef? playing, selected;
@@ -112,11 +115,14 @@ class _MushafPageState extends State<MushafPage> {
   Widget _pageBody(BuildContext context) {
     final c = context.c;
     final rows = widget.page <= 2 ? 8 : 15;
-    final first = _words.first;
-    final juz = Quran.I.ayah(first.surah, first.ayah).juz;
+    final mid = _words[_words.length ~/ 2]; // the verse in the middle of the page names it (surah, juz, hizb), as in the printed mushaf
+    final midAyah = Quran.I.ayah(mid.surah, mid.ayah);
+    final juz = midAyah.juz;
+    final hizb = Quran.I.hizbLabel(mid.surah, mid.ayah);
+    final headStyle = TextStyle(fontSize: 12.5, color: c.textSecondary, fontWeight: FontWeight.w500);
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth, h = box.maxHeight;
-      const padX = 14.0;
+      final padX = widget.flat ? 8.0 : 14.0;
       final innerW = w - padX * 2;
       final headH = 28.0, footH = 26.0;
       final gridH = h - headH - footH - 10;
@@ -179,6 +185,15 @@ class _MushafPageState extends State<MushafPage> {
         }
       }
 
+      // when the next page opens a new surah on its second line (its first line is the bismillah), the heading is printed at the foot of this page
+      if (widget.page < 604) {
+        final nf = Quran.I.firstWordOf(widget.page + 1);
+        if (nf.isFirst && nf.ayah == 1 && nf.line == 2 && nf.surah != 1 && nf.surah != 9) {
+          final last = sortedKeys.isEmpty ? 0 : sortedKeys.last;
+          if (last > 0 && last < rows && !banners.containsKey(last + 1)) banners[last + 1] = _Banner(Quran.I.surah(nf.surah).ar, height: rowH);
+        }
+      }
+
       Widget lineWidget(int ln) {
         final idx = lines[ln]!;
         final last = _words[idx.last];
@@ -201,19 +216,22 @@ class _MushafPageState extends State<MushafPage> {
       }
 
       return Container(
-        decoration: BoxDecoration(
-          color: c.paper,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: c.separator),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: c.dark ? 0.4 : 0.07), blurRadius: 22, offset: const Offset(0, 8))],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: padX, vertical: 4),
+        decoration: widget.flat
+            ? BoxDecoration(color: c.paper)
+            : BoxDecoration(
+                color: c.paper,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: c.separator),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: c.dark ? 0.4 : 0.07), blurRadius: 22, offset: const Offset(0, 8))],
+              ),
+        padding: EdgeInsets.symmetric(horizontal: padX, vertical: 4),
         child: Column(children: [
           SizedBox(
             height: headH,
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('الجزء ${arabicDigits(juz)}', style: TextStyle(fontFamily: kArabicFont, fontSize: 15, color: c.textSecondary)),
-              Text('سورة ${Quran.I.surah(first.surah).ar}', style: TextStyle(fontFamily: kArabicFont, fontSize: 15, color: c.textSecondary)),
+              Flexible(child: Text('Surah ${Quran.I.surah(mid.surah).en}', maxLines: 1, overflow: TextOverflow.ellipsis, style: headStyle)),
+              const SizedBox(width: 8),
+              Text("Juz\u2019 $juz${hizb.isEmpty ? '' : ', $hizb'}", maxLines: 1, style: headStyle),
             ]),
           ),
           Expanded(
@@ -225,7 +243,7 @@ class _MushafPageState extends State<MushafPage> {
                 ),
             ]),
           ),
-          SizedBox(height: footH, child: Center(child: Text(arabicDigits(widget.page), style: TextStyle(fontFamily: kArabicFont, fontSize: 15, color: c.textSecondary)))),
+          SizedBox(height: footH, child: Center(child: Text('${widget.page}', style: headStyle.copyWith(fontSize: 13.5)))),
         ]),
       );
     });
@@ -461,18 +479,77 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: height * 0.08),
-      decoration: BoxDecoration(
-        border: Border.symmetric(horizontal: BorderSide(color: c.accent.withValues(alpha: 0.55), width: 1.2)),
-        borderRadius: BorderRadius.circular(6),
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _BannerPainter(c.ink, c.accent),
+        child: Center(child: Text('سورة $name', style: TextStyle(fontFamily: kArabicFont, fontSize: height * 0.5, color: c.ink, height: 1.0))),
       ),
-      child: Stack(alignment: Alignment.center, children: [
-        Positioned.fill(
-          child: CustomPaint(painter: GradientPainter.linear([c.accent.withValues(alpha: 0.05), c.accent.withValues(alpha: 0.2), c.accent.withValues(alpha: 0.05)], begin: Alignment.centerLeft, end: Alignment.centerRight, radius: 6)),
-        ),
-        Text('سورة $name', style: TextStyle(fontFamily: kArabicFont, fontSize: height * 0.52, color: c.text)),
-      ]),
     );
   }
+}
+
+
+/// The ornamental frame of a surah heading: a double border, a rosette at each end, and a cartouche for the name.
+class _BannerPainter extends CustomPainter {
+  _BannerPainter(this.ink, this.accent);
+  final Color ink, accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final m = h * 0.06;
+    final outer = RRect.fromRectAndRadius(Rect.fromLTRB(1.2, m, w - 1.2, h - m), Radius.circular(h * 0.14));
+    final stroke = Paint()
+      ..color = ink.withValues(alpha: 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2;
+    final thin = Paint()
+      ..color = ink.withValues(alpha: 0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9;
+    final fill = Paint()..color = accent.withValues(alpha: 0.09);
+    canvas.drawRRect(outer, fill);
+    canvas.drawRRect(outer, stroke);
+    canvas.drawRRect(outer.deflate(h * 0.075), thin);
+
+    // small dots along the top and bottom between the two borders
+    final dot = Paint()..color = ink.withValues(alpha: 0.7);
+    final step = math.max(9.0, h * 0.28);
+    for (var x = h * 1.3; x < w - h * 1.3; x += step) {
+      canvas.drawCircle(Offset(x, m + h * 0.037), 0.9, dot);
+      canvas.drawCircle(Offset(x, h - m - h * 0.037), 0.9, dot);
+    }
+
+    // a rosette at each end: rings, petals and a centre
+    void rosette(Offset c) {
+      final r = h * 0.3;
+      canvas.drawCircle(c, r, stroke..strokeWidth = 1.6);
+      canvas.drawCircle(c, r * 0.72, thin);
+      for (var i = 0; i < 8; i++) {
+        final a = i * math.pi / 4;
+        canvas.drawCircle(c + Offset(math.cos(a), math.sin(a)) * r * 0.5, r * 0.13, dot);
+      }
+      canvas.drawCircle(c, r * 0.16, dot);
+    }
+
+    final cy = h / 2;
+    rosette(Offset(h * 0.62, cy));
+    rosette(Offset(w - h * 0.62, cy));
+
+    // the cartouche for the name, joined to the rosettes by two fine lines
+    final cw = math.min(w * 0.46, h * 5.2);
+    final cart = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(w / 2, cy), width: cw, height: h * 0.74), Radius.circular(h * 0.37));
+    canvas.drawRRect(cart, Paint()..color = const Color(0x00000000));
+    canvas.drawRRect(cart, stroke..strokeWidth = 1.5);
+    canvas.drawRRect(cart.deflate(h * 0.05), thin);
+    for (final f in [0.38, 0.62]) {
+      canvas.drawLine(Offset(h * 0.95, h * f), Offset(w / 2 - cw / 2, h * f), thin);
+      canvas.drawLine(Offset(w / 2 + cw / 2, h * f), Offset(w - h * 0.95, h * f), thin);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BannerPainter old) => old.ink != ink || old.accent != accent;
 }

@@ -129,6 +129,21 @@ class Quran {
       _qcf = null; // public build: the licensed glyph data is not shipped
     }
     _repairPages();
+    try {
+      _rub = [for (final l in await _json('assets/data/rub.json') as List) (l as List).cast<int>()];
+    } catch (_) {
+      _rub = null;
+    }
+  }
+
+  List<List<int>>? _rub; // for every verse, which quarter of a hizb (1..240) it is in
+
+  /// "Hizb 60", "¼ Hizb 60", "½ Hizb 60" or "¾ Hizb 60" for a verse, as printed in the corner of a mushaf page.
+  String hizbLabel(int surah, int ayah) {
+    final r = _rub;
+    if (r == null || surah < 1 || surah > r.length || ayah < 1 || ayah > r[surah - 1].length) return '';
+    final rub = r[surah - 1][ayah - 1];
+    return '${const ['', '¼ ', '½ ', '¾ '][(rub - 1) % 4]}Hizb ${(rub - 1) ~/ 4 + 1}';
   }
 
   /// In the source data about 25 pages carry the first words of the next page at their end (or the last words of the previous page
@@ -188,6 +203,11 @@ class Quran {
 
   int juzFirstSurah(int juz) => byGlobal(_juzStart[juz]!).surah;
   Ayah juzStart(int juz) => byGlobal(_juzStart[juz]!);
+
+  PageWord firstWordOf(int p) {
+    final w = _pages[p - 1][0];
+    return PageWord(w[0], w[1], w[2], w[3], w[4]);
+  }
 
   List<PageWord> pageWords(int p) => [
         for (final w in _pages[p - 1]) PageWord(w[0], w[1], w[2], w[3], w[4]),

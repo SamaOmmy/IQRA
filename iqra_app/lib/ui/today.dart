@@ -419,11 +419,11 @@ class _UpdateBanner extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('IQRA ${u.latest} is available', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
-                Text(u.installMessage ?? 'You have ${u.current}. Update now to get the newest features.', style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.35)),
+                Text(u.installMessage ?? (u.personal ? 'This copy includes the licensed fonts, so it is updated from your PC.' : 'You have ${u.current}. Update now to get the newest features.'), style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.35)),
               ]),
             ),
             const SizedBox(width: 8),
-            FilledButton(
+            if (!u.personal) FilledButton(
               onPressed: busy ? null : () => u.install(),
               style: FilledButton.styleFrom(backgroundColor: c.accent, foregroundColor: c.onAccent, shape: const StadiumBorder()),
               child: Text(busy ? '${(u.progress * 100).round()}%' : (u.ready ? 'Install' : (u.canInstallHere ? 'Update' : 'Download'))),
