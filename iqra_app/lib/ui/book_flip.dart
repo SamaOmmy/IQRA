@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'gradients.dart';
 
@@ -39,6 +42,12 @@ class BookFlip extends StatefulWidget {
 }
 
 class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin {
+  @override
+  void initState() {
+    super.initState();
+    _prepareAhead();
+  }
+
   late int _idx = widget.index;
   late int _to = widget.index; // the sheet being turned to (equal to _idx when still)
   late final AnimationController _ac = AnimationController(vsync: this);
@@ -49,6 +58,63 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
   AnimationController? _scroller;
 
   bool get _turning => _to != _idx;
+
+  // A turning leaf is drawn with a perspective transform, which makes the graphics chip redraw all of the page's text on every frame.
+  // So when a turn starts, the two faces of the leaf are photographed once (front and back) and the photographs are what swing.
+  final Map<int, GlobalKey> _keys = {};
+  GlobalKey _k(int page) => _keys.putIfAbsent(page, GlobalKey.new);
+  ui.Image? _front, _back;
+  bool _ahead = false; // the next sheet is built (hidden) while the book is at rest
+  Timer? _aheadTimer;
+
+  void _prepareAhead() {
+    _aheadTimer?.cancel();
+    if (_ahead) setState(() => _ahead = false);
+    if (!widget.motion || _idx + 1 >= widget.count) return;
+    _aheadTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted && !_turning && !_drag) setState(() => _ahead = true);
+    });
+  }
+
+  void _clearSnaps() {
+    _front?.dispose();
+    _back?.dispose();
+    _front = _back = null;
+  }
+
+  /// Which pages form the two faces of the leaf for the turn that is under way.
+  (int, int?) _faces() {
+    final fwd = _to > _idx;
+    if (widget.spread) return fwd ? (_idx * 2 + 2, _to * 2 + 1) : (_idx * 2 + 1, _to * 2 + 2);
+    return fwd ? (_idx + 1, null) : (_to + 1, null);
+  }
+
+  void _scheduleSnap() {
+    _clearSnaps();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_turning || _front != null) return;
+      final ratio = MediaQuery.devicePixelRatioOf(context);
+      ui.Image? grab(int? page) {
+        if (page == null) return null;
+        try {
+          final ro = _keys[page]?.currentContext?.findRenderObject();
+          if (ro is RenderRepaintBoundary && ro.hasSize) return ro.toImageSync(pixelRatio: ratio);
+        } catch (_) {}
+        return null;
+      }
+
+      final (fn, bn) = _faces();
+      final f = grab(fn), b = grab(bn);
+      if (f == null) {
+        b?.dispose();
+        return;
+      }
+      setState(() {
+        _front = f;
+        _back = b;
+      });
+    });
+  }
 
   /// The sheet shown, or the one being turned to.
   int get target => _to;
@@ -65,7 +131,9 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
 
   @override
   void dispose() {
+    _aheadTimer?.cancel();
     _ac.dispose();
+    _clearSnaps();
     _scroller?.dispose();
     super.dispose();
   }
@@ -81,7 +149,9 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
       jumpTo(index);
       return;
     }
+    _aheadTimer?.cancel();
     setState(() => _to = index);
+    _scheduleSnap();
     _ac.value = 0;
     _ac.animateTo(1, duration: duration, curve: curve).whenComplete(() {
       if (mounted && !_drag && _turning) _finish();
@@ -92,6 +162,7 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
   void jumpTo(int index) {
     index = index.clamp(0, widget.count - 1);
     _ac.stop();
+    _clearSnaps();
     final changed = index != _idx;
     setState(() {
       _idx = _to = index;
@@ -104,11 +175,14 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
   void _finish() {
     final to = _to;
     _ac.stop();
+    _clearSnaps();
     setState(() {
       _idx = to;
       _ac.value = 0;
       _vy = 0;
+      _ahead = false;
     });
+    _prepareAhead();
     widget.onChanged(to);
   }
 
@@ -156,15 +230,20 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
     final dir = _sx > 0 ? 1 : -1;
     final to = _idx + dir;
     if (to < 0 || to >= widget.count) {
-      if (_turning) setState(() => _to = _idx);
+      if (_turning) {
+        _clearSnaps();
+        setState(() => _to = _idx);
+      }
       return;
     }
     final travel = widget.pageW * (widget.spread ? 1.5 : 0.9);
     _drag = true;
+    final changed = to != _to;
     setState(() {
       _to = to;
       _ac.value = (_sx.abs() / travel).clamp(0.0, 1.0);
     });
+    if (changed) _scheduleSnap();
   }
 
   void _onEnd(DragEndDetails d) {
@@ -184,7 +263,10 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
       });
     } else {
       _ac.animateTo(0, duration: Duration(milliseconds: ms), curve: Curves.easeOutCubic).whenComplete(() {
-        if (mounted) setState(() => _to = _idx);
+        if (mounted) {
+          _clearSnaps();
+          setState(() => _to = _idx);
+        }
       });
     }
   }
@@ -201,6 +283,7 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
     final w = widget;
     final W = w.pageW, H = w.pageH;
     Widget pg(int p) => RepaintBoundary(
+          key: _k(p),
           child: (p >= 1 && p <= 604) ? SizedBox(width: W, height: H, child: w.page(p)) : SizedBox(width: W, height: H),
         );
 
@@ -216,6 +299,14 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
     } else {
       pages['c'] = pg(cur + 1);
       if (_turning) pages['t'] = pg(to + 1);
+    }
+    if (!_turning && _ahead && cur + 1 < w.count) {
+      if (w.spread) {
+        pages['tr'] = pg((cur + 1) * 2 + 1);
+        pages['tl'] = pg((cur + 1) * 2 + 2);
+      } else {
+        pages['t'] = pg(cur + 2);
+      }
     }
 
     final bookW = w.spread ? W * 2 : W;
@@ -281,7 +372,10 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
     Widget leaf({required Widget front, required Widget back, required double theta, required bool fromLeft, required double slot}) {
       final showBack = theta > math.pi / 2;
       final s = math.sin(theta);
-      final face = showBack ? Transform.flip(flipX: true, child: Stack(fit: StackFit.passthrough, children: [back, _shade(0.30 * s)])) : Stack(fit: StackFit.passthrough, children: [front, _shade(0.38 * s)]);
+      Widget photo(ui.Image img) => RawImage(image: img, width: W, height: H, fit: BoxFit.fill, filterQuality: FilterQuality.medium);
+      final frontFace = _front != null ? photo(_front!) : front;
+      final backFace = _back != null ? photo(_back!) : const SizedBox();
+      final face = showBack ? Transform.flip(flipX: true, child: Stack(fit: StackFit.passthrough, children: [backFace, _shade(0.30 * s)])) : Stack(fit: StackFit.passthrough, children: [frontFace, _shade(0.38 * s)]);
       return Positioned(
         left: slot,
         top: 0,
@@ -315,6 +409,7 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
           Positioned(left: 0, top: 0, child: p['cl']!),
           Positioned(left: W, top: 0, child: p['cr']!),
           spine(),
+          if (p['tl'] != null) Offstage(child: Row(mainAxisSize: MainAxisSize.min, children: [p['tl']!, p['tr']!])),
         ]);
       }
       final fwd = _to > _idx;
@@ -324,23 +419,30 @@ class BookFlipState extends State<BookFlip> with SingleTickerProviderStateMixin 
         // the left page lifts over the spine and lands on the right: its back is the new right page
         return Stack(children: [
           Positioned(left: 0, top: 0, child: p['tl']!),
+          if (_back == null) Positioned(left: W, top: 0, child: p['tr']!),
           Positioned(left: W, top: 0, child: p['cr']!),
           _under(W, H, left: W, alpha: 0.28 * s),
-          leaf(front: p['cl']!, back: p['tr']!, theta: theta, fromLeft: true, slot: 0),
+          leaf(front: p['cl']!, back: const SizedBox(), theta: theta, fromLeft: true, slot: 0),
           spine(),
         ]);
       }
       return Stack(children: [
+        if (_back == null) Positioned(left: 0, top: 0, child: p['tl']!),
         Positioned(left: 0, top: 0, child: p['cl']!),
         Positioned(left: W, top: 0, child: p['tr']!),
         _under(W, H, left: 0, alpha: 0.28 * s),
-        leaf(front: p['cr']!, back: p['tl']!, theta: theta, fromLeft: false, slot: W),
+        leaf(front: p['cr']!, back: const SizedBox(), theta: theta, fromLeft: false, slot: W),
         spine(),
       ]);
     }
 
     // a single page: it lifts from its left edge about the spine on the right, and the next page is beneath
-    if (!_turning) return Stack(children: [Positioned(left: 0, top: 0, child: p['c']!)]);
+    if (!_turning) {
+      return Stack(children: [
+        Positioned(left: 0, top: 0, child: p['c']!),
+        if (p['t'] != null) Offstage(child: p['t']!),
+      ]);
+    }
     final fwd = _to > _idx;
     final theta = (math.pi / 2) * (fwd ? t : 1 - t);
     return Stack(children: [

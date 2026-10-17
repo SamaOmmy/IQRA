@@ -219,7 +219,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void _tapVerse(int s, int a, int page) => _openVerse(s, a, page);
 
   KeyEventResult _onKey(FocusNode n, KeyEvent e) {
-    if (e is! KeyDownEvent || !_mushaf) return KeyEventResult.ignored;
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    if (e.logicalKey == LogicalKeyboardKey.escape) {
+      // one step back at a time: the verse panel, then compact reading, then the reader itself
+      if (_panel != null) {
+        setState(() {
+          _panel = null;
+          _selected = null;
+        });
+      } else if (_mushaf && context.read<AppStore>().readerFocus) {
+        context.read<AppStore>().readerFocus = false;
+      } else {
+        Navigator.of(context).maybePop();
+      }
+      return KeyEventResult.handled;
+    }
+    if (!_mushaf) return KeyEventResult.ignored;
     if (e.logicalKey == LogicalKeyboardKey.space) {
       // play / pause what is being recited, or start from the top of this page
       if (_audio.current != null) {
@@ -228,10 +243,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
         final first = Quran.I.pageWords(_page).first;
         _audio.playVerse(first.surah, first.ayah, scope: PlayScope.continuous);
       }
-      return KeyEventResult.handled;
-    }
-    if (e.logicalKey == LogicalKeyboardKey.escape && context.read<AppStore>().readerFocus && _panel == null) {
-      context.read<AppStore>().readerFocus = false;
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.keyF && !HardwareKeyboard.instance.isControlPressed) {
@@ -561,6 +572,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       isScrollControlled: true,
       builder: (ctx) => Align(
         alignment: Alignment.bottomCenter,
+        widthFactor: 1,
+        heightFactor: 1,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 560, maxHeight: MediaQuery.of(ctx).size.height * 0.88),
           child: Glass(

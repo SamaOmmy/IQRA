@@ -129,7 +129,7 @@ class DevHook {
       case 'status':
         if (ctx != null) {
           final au = ctx.read<AudioController>();
-          debugPrint('DEV audio: ${au.current?.s}:${au.current?.a} connected=${au.connected} playing=${au.playing} loading=${au.loading} pos=${au.position} dur=${au.duration} err=${au.error}');
+          debugPrint('DEV audio: ${au.current?.s}:${au.current?.a} connected=${au.connected} playing=${au.playing} loading=${au.loading} pos=${au.position} dur=${au.duration} err=${au.error} raw=${au.player.state.position} buffering=${au.player.state.buffering} rawdur=${au.player.state.duration} bufpos=${au.player.state.buffer}');
         }
       case 'seekverse':
         if (ctx != null) await ctx.read<AudioController>().playVerse(int.parse(p[1]), int.parse(p[2]), scope: PlayScope.continuous);

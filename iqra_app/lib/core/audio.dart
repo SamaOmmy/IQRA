@@ -8,6 +8,7 @@ import 'audio_cache.dart';
 import 'quran.dart';
 import 'store.dart';
 import 'surah_track.dart';
+import 'track_stream.dart';
 
 enum PlayScope { verse, surah, continuous, page, queue, range }
 
@@ -18,10 +19,12 @@ class AudioController extends ChangeNotifier {
     player = Player();
     player.setRate(store.speed);
     _subs.add(player.stream.position.listen((p) {
+      // while a verse is being started the player still reports where it was (often the start of the recording): ignore that
+      if (loading) return;
       var verseChanged = false;
       final t = _track, c = current;
       if (t != null && c != null) {
-        _rawMs = p.inMilliseconds;
+        _rawMs = _base + p.inMilliseconds;
         final v = t.verseAt(_rawMs);
         if (v != c.a) {
           verseChanged = true;
@@ -87,6 +90,7 @@ class AudioController extends ChangeNotifier {
   SurahTrack? _track;
   String? _trackReciter;
   int _rawMs = 0;
+  int _base = 0; // where the stream being played starts inside the recording (ms)
   bool get connected => _track != null;
 
   /// Changes with every position update; progress bars and clocks listen to this instead of the whole controller.
@@ -202,16 +206,15 @@ class AudioController extends ChangeNotifier {
         if (token != _token) return true;
         if (t == null || t.verses != Quran.I.surah(s).ayahs.length) return false;
         _track = null; // positions of the previous recording must not be read as this one's
-        await player.open(Media(t.url), play: false);
-        if (token != _token) return true;
-        await player.stream.duration.firstWhere((d) => d > Duration.zero).timeout(const Duration(seconds: 15));
-        if (token != _token) return true;
-        _track = t;
-        _trackReciter = store.reciter;
       }
-      await player.seek(Duration(milliseconds: a <= 1 ? 0 : t.from[a - 1]));
-      await player.setRate(store.speed);
-      await player.play();
+      // open the recording right at the chosen verse (a little before it, so the first syllable is not cut)
+      final startAbs = a <= 1 ? 0 : math.max(0, t.from[a - 1] - 250);
+      final base = await _openAt(t, startAbs);
+      if (token != _token) return true;
+      if (base == null) return false;
+      _base = base;
+      _track = t;
+      _trackReciter = store.reciter;
       loading = false;
       notifyListeners();
       return true;
@@ -219,6 +222,53 @@ class AudioController extends ChangeNotifier {
       _track = null;
       return false;
     }
+  }
+
+  /// Opens and starts the recording so that it begins at about [absMs] and returns where the stream starts (ms), or null if it
+  /// would not start. A start deep inside the file is served from the matching byte position (see [TrackStream]).
+  Future<int?> _openAt(SurahTrack t, int absMs) async {
+    var url = t.url;
+    var base = 0;
+    if (absMs >= 2000) {
+      final size = await TrackStream.sizeOf(t.url);
+      final last = t.to.last;
+      if (size > 0 && last > 0) {
+        final offset = (size * (absMs / last)).floor();
+        url = await TrackStream.urlFor(t.url, offset);
+        base = (offset * last / size).round();
+      }
+    }
+    await player.open(Media(url), play: true);
+    await player.setRate(store.speed);
+    // started when the player reports time moving on
+    try {
+      await player.stream.position.firstWhere((p) => p > const Duration(milliseconds: 80)).timeout(const Duration(seconds: 15));
+    } catch (_) {
+      return null;
+    }
+    return base;
+  }
+
+  /// Moves to [abs] (ms in the recording). A short move is a seek within what the player has; a long one opens the recording there.
+  Future<void> _seekAbs(int abs) async {
+    final t = _track;
+    if (t == null) return;
+    final rel = abs - _base;
+    if (rel >= 0 && (abs - _rawMs).abs() < 45000) {
+      await player.seek(Duration(milliseconds: rel));
+      try {
+        await player.stream.position.firstWhere((p) => (p.inMilliseconds - rel).abs() < 1500).timeout(const Duration(milliseconds: 2500));
+        return;
+      } catch (_) {}
+    }
+    final token = ++_token;
+    loading = true;
+    notifyListeners();
+    final base = await _openAt(t, abs);
+    if (token != _token) return;
+    if (base != null) _base = base;
+    loading = false;
+    notifyListeners();
   }
 
   /// Plays whole surahs one after another.
@@ -313,7 +363,7 @@ class AudioController extends ChangeNotifier {
     if (c == null) return;
     final t = _track;
     if (t != null && c.a < t.verses) {
-      await player.seek(Duration(milliseconds: t.from[c.a]));
+      await _seekAbs(t.from[c.a]);
       return;
     }
     if (scope == PlayScope.queue) {
@@ -336,10 +386,10 @@ class AudioController extends ChangeNotifier {
     final t = _track;
     if (t != null) {
       if (position > const Duration(seconds: 3) || c.a <= 1) {
-        await player.seek(Duration(milliseconds: c.a <= 1 ? 0 : t.from[c.a - 1]));
+        await _seekAbs(c.a <= 1 ? 0 : t.from[c.a - 1]);
         return;
       }
-      await player.seek(Duration(milliseconds: t.from[c.a - 2]));
+      await _seekAbs(t.from[c.a - 2]);
       return;
     }
     if (position > const Duration(seconds: 3)) {
@@ -384,7 +434,7 @@ class AudioController extends ChangeNotifier {
 
   Future<void> seekFraction(double f) {
     final t = _track, c = current;
-    if (t != null && c != null) return player.seek(Duration(milliseconds: t.from[c.a - 1] + ((t.to[c.a - 1] - t.from[c.a - 1]) * f).round()));
+    if (t != null && c != null) return _seekAbs(t.from[c.a - 1] + ((t.to[c.a - 1] - t.from[c.a - 1]) * f).round());
     return player.seek(Duration(milliseconds: (duration.inMilliseconds * f).round()));
   }
 

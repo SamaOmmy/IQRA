@@ -682,6 +682,8 @@ class _Controls extends StatelessWidget {
       isScrollControlled: true,
       builder: (ctx) => Align(
         alignment: Alignment.bottomCenter,
+        widthFactor: 1,
+        heightFactor: 1,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 520, maxHeight: MediaQuery.of(ctx).size.height * 0.7),
           child: Glass(

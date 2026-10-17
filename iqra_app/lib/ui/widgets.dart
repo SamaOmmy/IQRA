@@ -31,7 +31,7 @@ class Glass extends StatelessWidget {
     final phone = !Perf.glassBlur; // a live blur over scrolling content costs a frame on every frame of a scroll: a nearly solid surface instead
     final box = DecoratedBox(
       decoration: BoxDecoration(
-        color: (color ?? c.bg).withValues(alpha: phone ? math.max(opacity, 0.96) : opacity),
+        color: (color ?? c.bg).withValues(alpha: phone ? math.max(opacity, 0.985) : opacity),
         borderRadius: radius,
         border: border ? Border.all(color: c.separator.withValues(alpha: 0.7)) : null,
       ),
@@ -333,7 +333,7 @@ class _ArtTileState extends State<ArtTile> {
 
 /// A sliver grid whose tiles keep a fixed text height under square artwork, at any window width.
 class TileGrid extends StatelessWidget {
-  const TileGrid({super.key, required this.count, required this.builder, this.minTile = 160, this.gap = 16, this.extra = 60, this.padding = 20});
+  const TileGrid({super.key, required this.count, required this.builder, this.minTile = 160, this.gap = 16, this.extra = 68, this.padding = 20});
   final int count;
   final Widget Function(BuildContext, int) builder;
   final double minTile, gap, extra, padding;

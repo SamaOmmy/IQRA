@@ -296,6 +296,8 @@ class _RenderMushafLine extends RenderBox {
 
   List<TextPainter> _tps = const [];
   List<Rect> _rects = const [];
+  bool _textDirty = true; // the words or their style changed: the text must be laid out again
+  double _lastWidth = -1, _gapUsed = 0, _totalUsed = 0, _naturalUsed = 0;
 
   void update(_MushafLine w, {bool force = false}) {
     final relayout = force || w.family != _family || w.size != _size || w.gap != _gap || w.mode != _mode || w.ink != _ink || w.accent != _accent || !_sameWords(w.words);
@@ -312,6 +314,7 @@ class _RenderMushafLine extends RenderBox {
     _selected = w.selectedColor;
     _onTap = w.onTap;
     if (relayout) {
+      _textDirty = true;
       markNeedsLayout();
     } else if (repaint) {
       markNeedsPaint();
@@ -367,10 +370,15 @@ class _RenderMushafLine extends RenderBox {
 
   @override
   void performLayout() {
+    final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+    if (!_textDirty && w == _lastWidth && _tps.isNotEmpty) {
+      // the same line at the same width (it was only moved, for example into a page turn): nothing to measure again
+      _arrange(w, _gapUsed, _totalUsed, _naturalUsed);
+      return;
+    }
     for (final t in _tps) {
       t.dispose();
     }
-    final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
     var fontSize = _size, gap = _gap;
     var tps = _layoutWords(fontSize);
     double total = 0;
@@ -395,12 +403,22 @@ class _RenderMushafLine extends RenderBox {
       natural = total + (n > 1 ? (n - 1) * gap : 0);
     }
     _tps = tps;
+    _textDirty = false;
+    _lastWidth = w;
+    _gapUsed = gap;
+    _totalUsed = total;
+    _naturalUsed = natural;
+    _arrange(w, gap, total, natural);
+  }
+
+  void _arrange(double w, double gap, double total, double natural) {
     var tallest = 0.0;
     for (final t in _tps) {
       if (t.height > tallest) tallest = t.height;
     }
     final h = constraints.hasBoundedHeight ? constraints.maxHeight : tallest;
     size = constraints.constrain(Size(w, h));
+    final n = _tps.length;
 
     final centre = _mode == 1 || (_mode == 2 && natural < size.width * 0.85);
     final between = centre ? gap : (n > 1 ? ((size.width - total) / (n - 1)).clamp(0.0, double.infinity) : 0.0);

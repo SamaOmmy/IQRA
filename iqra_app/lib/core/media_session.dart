@@ -28,6 +28,7 @@ class IqraMediaSession extends BaseAudioHandler with SeekHandler {
         config: const AudioServiceConfig(
           androidNotificationChannelId: 'com.samaommy.iqra.recitation',
           androidNotificationChannelName: 'Recitation',
+          androidNotificationIcon: 'drawable/ic_stat_iqra',
           androidNotificationOngoing: false,
           androidStopForegroundOnPause: false,
         ),

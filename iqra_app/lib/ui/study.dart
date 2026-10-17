@@ -51,6 +51,8 @@ class _SheetFrame extends StatelessWidget {
     final wide = MediaQuery.of(context).size.width > 700;
     return Align(
       alignment: Alignment.bottomCenter,
+      widthFactor: 1,
+      heightFactor: 1,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: wide ? 640 : double.infinity, maxHeight: tall ? h * 0.9 : h * 0.8),
         child: Glass(

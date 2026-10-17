@@ -106,6 +106,8 @@ class _CityPickerState extends State<CityPicker> {
     ];
     return Align(
       alignment: Alignment.bottomCenter,
+      widthFactor: 1,
+      heightFactor: 1,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 560, maxHeight: MediaQuery.of(context).size.height * 0.88),
         child: Glass(

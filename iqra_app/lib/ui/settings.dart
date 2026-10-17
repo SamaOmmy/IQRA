@@ -324,6 +324,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Align(
         alignment: Alignment.bottomCenter,
+        widthFactor: 1,
+        heightFactor: 1,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 560, maxHeight: MediaQuery.of(ctx).size.height * 0.8),
           child: Glass(
@@ -363,6 +365,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Align(
         alignment: Alignment.bottomCenter,
+        widthFactor: 1,
+        heightFactor: 1,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 560, maxHeight: MediaQuery.of(ctx).size.height * 0.75),
           child: Glass(
