@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/store.dart';
 import '../core/theme.dart';
 import 'widgets.dart';
 
@@ -31,8 +33,8 @@ class _ShareCardDialog extends StatefulWidget {
 
 class _ShareCardDialogState extends State<_ShareCardDialog> {
   final _key = GlobalKey();
-  int _style = 0;
-  int _format = 0; // 0 post (4:5), 1 story (9:16, for WhatsApp status and Instagram stories)
+  late int _style = context.read<AppStore>().uiInt('shareStyle', 0);
+  late int _format = context.read<AppStore>().uiInt('shareFormat', 0); // 0 post (4:5), 1 story (9:16, for WhatsApp status and Instagram stories)
   bool _busy = false;
 
   Future<File> _render() async {
@@ -100,12 +102,21 @@ class _ShareCardDialogState extends State<_ShareCardDialog> {
             ),
             const SizedBox(height: 14),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              Pill('Post', selected: _format == 0, onTap: () => setState(() => _format = 0)),
-              Pill('Story / status', selected: _format == 1, onTap: () => setState(() => _format = 1)),
+              Pill('Post', selected: _format == 0, onTap: () {
+                setState(() => _format = 0);
+                context.read<AppStore>().setUiInt('shareFormat', 0);
+              }),
+              Pill('Story / status', selected: _format == 1, onTap: () {
+                setState(() => _format = 1);
+                context.read<AppStore>().setUiInt('shareFormat', 1);
+              }),
             ]),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              for (var i = 0; i < _styles.length; i++) Pill(_styles[i].$1, selected: _style == i, onTap: () => setState(() => _style = i)),
+              for (var i = 0; i < _styles.length; i++) Pill(_styles[i].$1, selected: _style == i, onTap: () {
+                  setState(() => _style = i);
+                  context.read<AppStore>().setUiInt('shareStyle', i);
+                }),
             ]),
             const SizedBox(height: 16),
             Row(children: [

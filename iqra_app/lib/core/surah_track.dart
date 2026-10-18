@@ -26,8 +26,12 @@ const kSurahRecitations = <String, int>{
 
 /// One whole-surah recording: where each verse starts and ends (milliseconds), and, when known, each word.
 class SurahTrack {
-  SurahTrack(this.surah, this.url, this.from, this.to, this.words);
+  SurahTrack(this.surah, this.url, this.from, this.to, this.words, {this.includesBasmala = false});
   final int surah;
+
+  /// True when the recording itself opens with the Bismillah (a few reciters do). The others start straight at verse 1, so the
+  /// Bismillah is played first, from the same reciter's own recording of it.
+  final bool includesBasmala;
   final String url;
   final List<int> from, to; // by verse (index = verse - 1)
   final List<List<List<int>>> words; // by verse: [word number, start, end] in the whole recording
@@ -107,7 +111,14 @@ class SurahTrack {
             if (s is List && s.length >= 3) [(s[0] as num).round(), (s[1] as num).round(), (s[2] as num).round()],
         ]);
       }
-      return SurahTrack(surah, af['audio_url'] as String, from, to, words);
+      // the timings of a few recordings are unusable (verse 1 starting minutes in, or verses out of order): play those verse by verse
+      if (from.first > 60000) return null;
+      for (var i = 0; i < from.length; i++) {
+        if (to[i] <= from[i] || (i > 0 && from[i] < from[i - 1])) return null;
+      }
+      // the reciters whose recording opens with the isti'adha and Bismillah (verse 1 starts a few seconds in, or is longer than the verse itself)
+      final withBasmala = const {13, 19, 104, 43}.contains(rid) || from.first >= 1500;
+      return SurahTrack(surah, af['audio_url'] as String, from, to, words, includesBasmala: withBasmala);
     } catch (_) {
       return null;
     }

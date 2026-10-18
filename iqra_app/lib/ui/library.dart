@@ -21,7 +21,7 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  int _tab = 0;
+  late int _tab = context.read<AppStore>().uiInt('libraryTab', 0);
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +40,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Segmented(items: const ['Bookmarks', 'Notes', 'Memorised', 'Progress'], index: _tab, onChanged: (i) => setState(() => _tab = i)),
+              child: Segmented(items: const ['Bookmarks', 'Notes', 'Memorised', 'Progress'], index: _tab, onChanged: (i) {
+                setState(() => _tab = i);
+                s.setUiInt('libraryTab', i);
+              }),
             ),
           ),
         ),

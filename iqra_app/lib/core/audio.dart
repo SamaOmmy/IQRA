@@ -153,9 +153,10 @@ class AudioController extends ChangeNotifier {
   Ayah? get ayah => current == null ? null : Quran.I.ayah(current!.s, current!.a);
   double get progress => duration.inMilliseconds == 0 ? 0 : (position.inMilliseconds / duration.inMilliseconds).clamp(0, 1).toDouble();
 
-  Future<void> playVerse(int s, int a, {PlayScope? scope, int? page}) async {
+  Future<void> playVerse(int s, int a, {PlayScope? scope, int? page, bool skipBasmala = false}) async {
     if (scope != null) this.scope = scope;
-    if (scope != PlayScope.queue) {
+    _basmalaThen = null;
+    if ((scope ?? this.scope) != PlayScope.queue) {
       queue = const [];
       queueTitle = null;
     }
@@ -174,6 +175,19 @@ class AudioController extends ChangeNotifier {
     store.setLast(s, a, Quran.I.ayah(s, a).page);
     if (previous == null || previous.s != s) store.pushRecentSurah(s);
     final wantTrack = store.wholeSurah && repeatEach <= 1 && (this.scope == PlayScope.continuous || this.scope == PlayScope.surah || this.scope == PlayScope.queue);
+    // A surah (except Al-Fatiha, which has it as its first verse, and At-Tawbah, which has none) begins with the Bismillah. Most
+    // recordings start straight at verse 1, so it is played first, in the same reciter's voice.
+    final wantsBasmala = !skipBasmala && a == 1 && s != 1 && s != 9 && this.scope != PlayScope.verse && this.scope != PlayScope.range;
+    if (wantsBasmala) {
+      var already = false;
+      if (wantTrack) {
+        final t = await SurahTrack.load(store.reciter, s);
+        if (token != _token) return;
+        already = t != null && t.verses == Quran.I.surah(s).ayahs.length && t.includesBasmala;
+      }
+      if (!already && await _playBasmala(s, a, token)) return;
+      if (token != _token) return;
+    }
     if (wantTrack) {
       if (await _playTrack(s, a, token)) return;
       if (token != _token) return;
@@ -193,6 +207,26 @@ class AudioController extends ChangeNotifier {
       playing = false;
       error = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
+    }
+  }
+
+  VerseRef? _basmalaThen; // the verse to carry on with once the Bismillah has been played
+
+  /// Plays this reciter's Bismillah (the first verse of Al-Fatiha) and arranges for [s]:[a] to follow. False if it cannot be played.
+  Future<bool> _playBasmala(int s, int a, int token) async {
+    try {
+      final path = await AudioCache.ensure(store.reciter, 1, 1);
+      if (token != _token) return true;
+      _track = null;
+      _basmalaThen = VerseRef(s, a);
+      await player.open(Media(Uri.file(path).toString()), play: true);
+      await player.setRate(store.speed);
+      loading = false;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _basmalaThen = null;
+      return false;
     }
   }
 
@@ -330,6 +364,13 @@ class AudioController extends ChangeNotifier {
   Future<void> _onCompleted() async {
     final c = current;
     if (c == null) return;
+    final then = _basmalaThen;
+    if (then != null) {
+      // the Bismillah is over: on to the verse itself
+      _basmalaThen = null;
+      await playVerse(then.s, then.a, skipBasmala: true, page: pageScope);
+      return;
+    }
     if (_track != null) {
       // the recording ended: carry on with the next surah if the mode says so
       final last = VerseRef(c.s, _track!.verses);
@@ -454,6 +495,7 @@ class AudioController extends ChangeNotifier {
 
   Future<void> stop() async {
     _token++;
+    _basmalaThen = null;
     _track = null;
     await player.stop();
     current = null;

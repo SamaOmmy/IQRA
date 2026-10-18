@@ -81,7 +81,7 @@ class _HadithScreenState extends State<HadithScreen> {
   @override
   void initState() {
     super.initState();
-    _theme = widget.theme;
+    _theme = widget.theme ?? context.read<AppStore>().uiStr('hadithTheme');
   }
 
   @override
@@ -96,8 +96,14 @@ class _HadithScreenState extends State<HadithScreen> {
       slivers: [
         SliverToBoxAdapter(
           child: Shelf(height: 54, gap: 8, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), children: [
-            Pill('All (${all.length})', selected: _theme == null, onTap: () => setState(() => _theme = null)),
-            for (final t in kHadithThemes) Pill(t.$2, selected: _theme == t.$1, onTap: () => setState(() => _theme = t.$1)),
+            Pill('All (${all.length})', selected: _theme == null, onTap: () {
+              setState(() => _theme = null);
+              context.read<AppStore>().setUiStr('hadithTheme', null);
+            }),
+            for (final t in kHadithThemes) Pill(t.$2, selected: _theme == t.$1, onTap: () {
+              setState(() => _theme = t.$1);
+              context.read<AppStore>().setUiStr('hadithTheme', t.$1);
+            }),
           ]),
         ),
         SliverList.builder(itemCount: list.length, itemBuilder: (_, i) => _pad(HadithCard(h: list[i]))),

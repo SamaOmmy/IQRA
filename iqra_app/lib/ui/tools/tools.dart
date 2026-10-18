@@ -85,7 +85,7 @@ class TasbihScreen extends StatefulWidget {
 
 class _TasbihScreenState extends State<TasbihScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 160));
-  int _phrase = 0;
+  late int _phrase = context.read<AppStore>().uiInt('tasbihPhrase', 0);
   static const _phrases = [
     ('سُبْحَانَ اللَّهِ', 'SubhanAllah'),
     ('الْحَمْدُ لِلَّهِ', 'Alhamdulillah'),
@@ -126,7 +126,10 @@ class _TasbihScreenState extends State<TasbihScreen> with SingleTickerProviderSt
               SizedBox(
                 height: 54,
                 child: ListView(scrollDirection: Axis.horizontal, children: [
-                  for (var i = 0; i < _phrases.length; i++) Padding(padding: const EdgeInsets.only(right: 8), child: Pill(_phrases[i].$2, selected: _phrase == i, onTap: () => setState(() => _phrase = i))),
+                  for (var i = 0; i < _phrases.length; i++) Padding(padding: const EdgeInsets.only(right: 8), child: Pill(_phrases[i].$2, selected: _phrase == i, onTap: () {
+                    setState(() => _phrase = i);
+                    s.setUiInt('tasbihPhrase', i);
+                  })),
                 ]),
               ),
               const SizedBox(height: 8),

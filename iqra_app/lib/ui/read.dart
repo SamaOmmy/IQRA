@@ -17,8 +17,8 @@ class ReadScreen extends StatefulWidget {
 }
 
 class _ReadScreenState extends State<ReadScreen> {
-  int _tab = 0; // 0 surahs, 1 juz, 2 go to
-  int _filter = 0; // 0 all, 1 Meccan, 2 Medinan
+  late int _tab = context.read<AppStore>().uiInt('readTab', 0); // 0 surahs, 1 juz, 2 go to
+  late int _filter = context.read<AppStore>().uiInt('readFilter', 0); // 0 all, 1 Meccan, 2 Medinan
 
   @override
   Widget build(BuildContext context) {
@@ -35,11 +35,23 @@ class _ReadScreenState extends State<ReadScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             child: Wrap(spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              Segmented(items: const ['Surahs', 'Juz', 'Go to'], index: _tab, onChanged: (i) => setState(() => _tab = i)),
+              Segmented(items: const ['Surahs', 'Juz', 'Go to'], index: _tab, onChanged: (i) {
+                setState(() => _tab = i);
+                store.setUiInt('readTab', i);
+              }),
               if (_tab == 0) ...[
-                Pill('All', selected: _filter == 0, onTap: () => setState(() => _filter = 0)),
-                Pill('Meccan', selected: _filter == 1, onTap: () => setState(() => _filter = 1)),
-                Pill('Medinan', selected: _filter == 2, onTap: () => setState(() => _filter = 2)),
+                Pill('All', selected: _filter == 0, onTap: () {
+                  setState(() => _filter = 0);
+                  store.setUiInt('readFilter', 0);
+                }),
+                Pill('Meccan', selected: _filter == 1, onTap: () {
+                  setState(() => _filter = 1);
+                  store.setUiInt('readFilter', 1);
+                }),
+                Pill('Medinan', selected: _filter == 2, onTap: () {
+                  setState(() => _filter = 2);
+                  store.setUiInt('readFilter', 2);
+                }),
               ],
             ]),
           ),

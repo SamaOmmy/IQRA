@@ -63,6 +63,14 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     current = this;
     WidgetsBinding.instance.addObserver(this);
     _store = context.read<AppStore>();
+    // reopen the section that was open last time
+    final savedSection = _store.uiStr('section');
+    for (final sec in const [Section.read, Section.listen, Section.discover, Section.tools, Section.library]) {
+      if (sec.name == savedSection) {
+        _section = sec;
+        _visited.add(sec);
+      }
+    }
     // people who already use the app skip the welcome
     if (!_store.seenWelcome) {
       if (_store.hasStartedReading || _store.place != null) {
@@ -151,6 +159,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
       _section = s;
       _visited.add(s);
     });
+    if (s != Section.search && s != Section.settings) _store.setUiStr('section', s.name);
     if (_store.motion) _fade.forward(from: 0);
   }
 

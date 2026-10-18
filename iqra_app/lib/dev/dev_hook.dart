@@ -120,6 +120,8 @@ class DevHook {
           }
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
+      case 'reciter':
+        if (ctx != null) ctx.read<AppStore>().reciter = p[1];
       case 'bg':
         await windowManager.setBackgroundColor(Color(int.parse(p[1], radix: 16)));
       case 'flip':

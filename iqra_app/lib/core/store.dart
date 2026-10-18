@@ -55,6 +55,17 @@ class AppStore extends ChangeNotifier {
   set theme(String v) => _set('theme', v);
   int get accent => _get('accent', 0); // 0 = the theme's own colour, else ARGB
   set accent(int v) => _set('accent', v);
+  // ---- how the person left the screens (the view they chose comes back as it was) ----
+  int uiInt(String k, int def) => _get<num>('ui_$k', def).toInt();
+  void setUiInt(String k, int v) {
+    if (uiInt(k, -9999) != v) _set('ui_$k', v);
+  }
+
+  String? uiStr(String k) => _get<String?>('ui_$k', null);
+  void setUiStr(String k, String? v) {
+    if (uiStr(k) != v) _set('ui_$k', v);
+  }
+
   bool get motion => _get('motion', true);
   /// Visual effects: 0 automatic (lightened by itself on a device that drops frames), 1 always full, 2 light.
   int get effects => _get<num>('effects', 0).toInt();

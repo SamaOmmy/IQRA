@@ -185,8 +185,8 @@ class NowPlayingScreen extends StatefulWidget {
 }
 
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
-  bool _lyrics = false; // phones: show the verses instead of the artwork
-  bool _lyricsWide = true; // PCs: the verses sit beside the artwork, like synced lyrics
+  late bool _lyrics = context.read<AppStore>().uiInt('npLyrics', 0) == 1; // phones: show the verses instead of the artwork
+  late bool _lyricsWide = context.read<AppStore>().uiInt('npLyricsWide', 1) == 1; // PCs: the verses sit beside the artwork, like synced lyrics
   bool _full = false;
   bool _selecting = false; // choosing verses to share as a picture
   final Set<int> _picked = {};
@@ -354,7 +354,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                     ]),
                   ),
                   IconButton(
-                    onPressed: () => setState(() => wide ? _lyricsWide = !_lyricsWide : _lyrics = !_lyrics),
+                    onPressed: () => setState(() {
+                      if (wide) {
+                        _lyricsWide = !_lyricsWide;
+                        store.setUiInt('npLyricsWide', _lyricsWide ? 1 : 0);
+                      } else {
+                        _lyrics = !_lyrics;
+                        store.setUiInt('npLyrics', _lyrics ? 1 : 0);
+                      }
+                    }),
                     icon: Icon(showLyrics ? Icons.lyrics_rounded : Icons.lyrics_outlined, color: Colors.white),
                     tooltip: showLyrics ? 'Hide the verses' : 'Follow the verses',
                   ),
