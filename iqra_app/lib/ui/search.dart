@@ -102,7 +102,7 @@ class _SearchScreenState extends State<SearchScreen> {
           results.add(Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Pressable(
-              onTap: () => openReader(context, surah: s.n, mushaf: false),
+              onTap: () => openReader(context, surah: s.n),
               radius: 14,
               child: Padding(
                 padding: const EdgeInsets.all(8),
@@ -125,7 +125,7 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Pressable(
               onTap: () {
                 store.addSearch(q);
-                openReader(context, surah: a.surah, ayah: a.n, mushaf: false);
+                openReader(context, surah: a.surah, ayah: a.n);
               },
               radius: 16,
               child: Container(

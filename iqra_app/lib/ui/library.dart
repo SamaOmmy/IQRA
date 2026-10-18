@@ -125,7 +125,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       child: Pressable(
-        onTap: onTap ?? () => openReader(context, surah: r.s, ayah: r.a, mushaf: false),
+        onTap: onTap ?? () => openReader(context, surah: r.s, ayah: r.a),
         radius: 16,
         child: Container(
           padding: const EdgeInsets.all(14),

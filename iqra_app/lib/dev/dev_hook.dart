@@ -120,6 +120,21 @@ class DevHook {
           }
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
+      case 'drag':
+        {
+          // drag x1 y1 x2 y2: a finger down, moved in steps, and lifted
+          final a0 = Offset(double.parse(p[1]), double.parse(p[2])), b0 = Offset(double.parse(p[3]), double.parse(p[4]));
+          final id = 700 + DateTime.now().millisecond;
+          GestureBinding.instance.handlePointerEvent(PointerAddedEvent(position: a0));
+          GestureBinding.instance.handlePointerEvent(PointerDownEvent(position: a0, pointer: id));
+          for (var i = 1; i <= 12; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 16));
+            final pos = Offset.lerp(a0, b0, i / 12)!;
+            GestureBinding.instance.handlePointerEvent(PointerMoveEvent(position: pos, pointer: id, delta: (b0 - a0) / 12));
+          }
+          GestureBinding.instance.handlePointerEvent(PointerUpEvent(position: b0, pointer: id));
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+        }
       case 'reciter':
         if (ctx != null) ctx.read<AppStore>().reciter = p[1];
       case 'bg':

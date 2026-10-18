@@ -18,6 +18,7 @@ class AudioController extends ChangeNotifier {
   AudioController(this.store) {
     player = Player();
     player.setRate(store.speed);
+    repeatEach = store.uiInt('repeatEach', 1);
     _subs.add(player.stream.position.listen((p) {
       // while a verse is being started the player still reports where it was (often the start of the recording): ignore that
       if (loading) return;
@@ -266,17 +267,16 @@ class AudioController extends ChangeNotifier {
     if (absMs >= 2000) {
       final size = await TrackStream.sizeOf(t.url);
       final last = t.to.last;
-      if (size > 0 && last > 0) {
-        final offset = (size * (absMs / last)).floor();
-        url = await TrackStream.urlFor(t.url, offset);
-        base = (offset * last / size).round();
-      }
+      if (size <= 0 || last <= 0) return null; // cannot place the start inside the recording: play verse by verse instead
+      final offset = (size * (absMs / last)).floor();
+      url = await TrackStream.urlFor(t.url, offset);
+      base = (offset * last / size).round();
     }
     await player.open(Media(url), play: true);
     await player.setRate(store.speed);
     // started when the player reports time moving on
     try {
-      await player.stream.position.firstWhere((p) => p > const Duration(milliseconds: 80)).timeout(const Duration(seconds: 15));
+      await player.stream.position.firstWhere((p) => p > const Duration(milliseconds: 80)).timeout(const Duration(seconds: 9));
     } catch (_) {
       return null;
     }
@@ -344,7 +344,9 @@ class AudioController extends ChangeNotifier {
         final nx = Quran.I.next(v.s, v.a);
         return nx != null && pageScope != null && Quran.I.ayah(nx.s, nx.a).page == pageScope ? nx : null;
       case PlayScope.continuous:
-        return Quran.I.next(v.s, v.a);
+        final nx = Quran.I.next(v.s, v.a);
+        // the switch in Settings: stop at the end of the surah when it is off
+        return nx != null && !store.continuous && nx.s != v.s ? null : nx;
       case PlayScope.queue:
         final nx = Quran.I.next(v.s, v.a);
         if (nx != null && nx.s == v.s) return nx;
@@ -487,6 +489,7 @@ class AudioController extends ChangeNotifier {
 
   void setRepeat(int n) {
     repeatEach = n;
+    store.setUiInt('repeatEach', n);
     notifyListeners();
     // repeating one verse needs the verse recordings
     final c = current;
@@ -497,10 +500,11 @@ class AudioController extends ChangeNotifier {
     _token++;
     _basmalaThen = null;
     _track = null;
-    await player.stop();
     current = null;
     playing = false;
-    notifyListeners();
+    loading = false;
+    notifyListeners(); // the bars go away at once; the player is stopped right after
+    await player.stop();
   }
 
   /// Stops playback after [minutes]; pass 0 to cancel.

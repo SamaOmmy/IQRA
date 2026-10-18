@@ -53,6 +53,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
   VerseRef? _selected;
   final _book = GlobalKey<BookFlipState>();
   final _items = ItemScrollController();
+  final _positions = ItemPositionsListener.create();
+  int? _visibleAyah; // verse view: the verse at the top of the screen
+  late int _startAyah = widget.ayah; // verse view: the verse the list opens at
+  Timer? _scrollTimer;
+  final _openedAt = DateTime.now();
   final _focus = FocusNode();
   Timer? _markTimer;
   late final AudioController _audio;
@@ -77,6 +82,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _selected = widget.page == null ? VerseRef(widget.surah, widget.ayah) : null;
     _scheduleMark();
     _prefetchFonts(_page);
+    _positions.itemPositions.addListener(_onVersePositions);
     _audio = context.read<AudioController>();
     final playing = _audio.current;
     if (playing != null) _followed = playing.s * 1000 + playing.a; // follow changes from here, not where it already was
@@ -105,8 +111,30 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
+  /// Verse view: where the person has read to is remembered (Continue reading) and the page counts as read after a few seconds,
+  /// as it does when turning mushaf pages.
+  void _onVersePositions() {
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted || _mushaf) return;
+      if (DateTime.now().difference(_openedAt) < const Duration(milliseconds: 1600)) return; // the first layout is not the person reading
+      final n = Quran.I.surah(_surah).ayahs.length;
+      final shown = _positions.itemPositions.value.where((p) => p.index >= 1 && p.index <= n && p.itemTrailingEdge > 0.15);
+      if (shown.isEmpty) return;
+      final top = shown.reduce((a, b) => a.itemLeadingEdge < b.itemLeadingEdge ? a : b);
+      final ay = Quran.I.ayah(_surah, top.index);
+      _visibleAyah = ay.n;
+      final newPage = ay.page != _page;
+      _page = ay.page;
+      context.read<AppStore>().setLast(_surah, ay.n, ay.page);
+      if (newPage || _markTimer == null || !_markTimer!.isActive) _scheduleMark();
+    });
+  }
+
   @override
   void dispose() {
+    _scrollTimer?.cancel();
+    _positions.itemPositions.removeListener(_onVersePositions);
     if (debugCurrent == this) debugCurrent = null;
     Future.microtask(() => readerOpen.value--);
     _markTimer?.cancel();
@@ -342,7 +370,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       onPressed: () {
                         final first = _mushaf ? Quran.I.pageWords(_page).first : null;
                         final s = _mushaf ? first!.surah : _surah;
-                        final a = _mushaf ? first!.ayah : (_selected?.a ?? 1);
+                        // verse view: from the chosen verse if it is still on screen, otherwise from the verse at the top
+                        final sel = _selected?.a, vis = _visibleAyah;
+                        final a = _mushaf ? first!.ayah : ((sel != null && (vis == null || (sel - vis).abs() < 8)) ? sel : (vis ?? sel ?? 1));
                         audio.playVerse(s, a, scope: PlayScope.continuous);
                       },
                       icon: Icon(Icons.play_circle_fill_rounded, color: c.accent, size: 30),
@@ -429,10 +459,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
     store.mushafView = mushaf;
     setState(() {
       if (!mushaf) {
-        final first = Quran.I.pageWords(_page).first;
-        _surah = first.surah;
+        // to verse view: at the verse in the middle of the page being read (or the chosen verse, if it is on this page)
+        final words = Quran.I.pageWords(_page);
+        final mid = words[words.length ~/ 2];
+        _surah = mid.surah;
+        final sel = _selected;
+        _startAyah = (sel != null && sel.s == mid.surah && Quran.I.ayah(sel.s, sel.a).page == _page) ? sel.a : words.first.surah == mid.surah ? words.first.ayah : mid.ayah;
+        _visibleAyah = _startAyah;
       } else {
-        _page = _selected != null ? Quran.I.ayah(_selected!.s, _selected!.a).page : Quran.I.surah(_surah).firstPage;
+        // to mushaf: the page of the chosen verse, or of the verse that was at the top of the screen
+        _page = _selected != null
+            ? Quran.I.ayah(_selected!.s, _selected!.a).page
+            : (_visibleAyah != null ? Quran.I.ayah(_surah, _visibleAyah!).page : Quran.I.ayah(_surah, _startAyah).page);
       }
       _mushaf = mushaf;
     });
@@ -514,7 +552,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         constraints: const BoxConstraints(maxWidth: 820),
         child: ScrollablePositionedList.builder(
           itemScrollController: _items,
-          initialScrollIndex: widget.ayah.clamp(1, sr.ayahs.length),
+          itemPositionsListener: _positions,
+          initialScrollIndex: _startAyah.clamp(1, sr.ayahs.length),
           itemCount: count + 1,
           padding: const EdgeInsets.only(bottom: 160),
           itemBuilder: (context, index) {

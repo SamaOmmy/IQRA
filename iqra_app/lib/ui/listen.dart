@@ -115,7 +115,7 @@ class _ListenScreenState extends State<ListenScreen> {
                   width: 140,
                   child: ArtTile(
                     surah: n,
-                    onOpen: () => openReader(context, surah: n, mushaf: false),
+                    onOpen: () => openReader(context, surah: n),
                     onPlay: () => audio.playVerse(n, 1, scope: PlayScope.surah),
                   ),
                 ),

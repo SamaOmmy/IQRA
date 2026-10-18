@@ -202,7 +202,7 @@ class VerseBlock extends StatelessWidget {
     final last = (b ?? a).clamp(a, Quran.I.surah(s).ayahs.length);
     final ayahs = [for (var i = a; i <= last; i++) Quran.I.ayah(s, i)];
     return Pressable(
-      onTap: () => openReader(context, surah: s, ayah: a, mushaf: false),
+      onTap: () => openReader(context, surah: s, ayah: a),
       radius: 18,
       scale: 0.99,
       hover: false,

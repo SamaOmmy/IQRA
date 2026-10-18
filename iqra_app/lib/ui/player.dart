@@ -45,7 +45,11 @@ class MiniPlayer extends StatelessWidget {
           : Padding(
               key: const ValueKey('mini'),
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-              child: Pressable(
+              child: Dismissible(
+                key: ValueKey('mini-${v.s}-dismiss'),
+                direction: DismissDirection.down,
+                onDismissed: (_) => audio.stop(),
+                child: Pressable(
                 onTap: () => showNowPlaying(context),
                 radius: 18,
                 scale: 0.985,
@@ -81,6 +85,7 @@ class MiniPlayer extends StatelessWidget {
                       ),
                     ]),
                   ),
+                ),
                 ),
               ),
             ),
@@ -154,6 +159,7 @@ class DesktopNowPlaying extends StatelessWidget {
                       ]),
                     ),
                     Padding(padding: const EdgeInsets.only(right: 12), child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => Text(_fmt(audio.position), style: TextStyle(color: c.textSecondary, fontSize: 12, fontFeatures: const [FontFeature.tabularFigures()])))),
+                    IconButton(onPressed: audio.stop, tooltip: 'Close the player', visualDensity: VisualDensity.compact, icon: Icon(Icons.close_rounded, size: 17, color: c.textSecondary)),
                   ]),
                   Positioned(left: 0, right: 0, bottom: 0, child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => LinearProgressIndicator(value: audio.progress, minHeight: 2.5, backgroundColor: Colors.transparent, color: c.accent))),
                 ]),
@@ -606,10 +612,19 @@ class _LyricsState extends State<_Lyrics> with SingleTickerProviderStateMixin {
   }
 }
 
-class _Controls extends StatelessWidget {
+class _Controls extends StatefulWidget {
   const _Controls({required this.audio, required this.store});
   final AudioController audio;
   final AppStore store;
+
+  @override
+  State<_Controls> createState() => _ControlsState();
+}
+
+class _ControlsState extends State<_Controls> {
+  double? _drag; // where the thumb is while a finger is on it
+  AudioController get audio => widget.audio;
+  AppStore get store => widget.store;
 
   @override
   Widget build(BuildContext context) {
@@ -625,7 +640,14 @@ class _Controls extends StatelessWidget {
           inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
           thumbColor: white,
         ),
-        child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => Slider(value: audio.progress.clamp(0, 1), onChanged: audio.active ? audio.seekFraction : null)),
+        child: ValueListenableBuilder<int>(valueListenable: audio.tick, builder: (_, __, ___) => Slider(
+          value: (_drag ?? audio.progress).clamp(0.0, 1.0),
+          onChanged: audio.active ? (v) => setState(() => _drag = v) : null,
+          onChangeEnd: (v) {
+            audio.seekFraction(v);
+            setState(() => _drag = null);
+          },
+        )),
       ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),

@@ -88,7 +88,7 @@ class SurahTrack {
       if (file.existsSync() && file.lengthSync() > 50) {
         body = file.readAsStringSync();
       } else {
-        final res = await _http.get(Uri.parse('https://api.quran.com/api/v4/chapter_recitations/$rid/$surah?segments=true')).timeout(const Duration(seconds: 15));
+        final res = await _http.get(Uri.parse('https://api.quran.com/api/v4/chapter_recitations/$rid/$surah?segments=true')).timeout(const Duration(seconds: 8));
         if (res.statusCode != 200) return null;
         body = res.body;
         file.writeAsStringSync(body);

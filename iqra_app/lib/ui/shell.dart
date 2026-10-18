@@ -124,6 +124,10 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
   }
 
   @override
+  void onWindowMaximize() => _store.setUiInt('winMax', 1); // reopened maximised if it was left that way
+  @override
+  void onWindowUnmaximize() => _store.setUiInt('winMax', 0);
+  @override
   void onWindowResized() => _saveBounds();
   @override
   void onWindowMoved() => _saveBounds();

@@ -29,7 +29,7 @@ Future<void> showVerseSheet(BuildContext context, int s, int a, {int? page}) {
   );
 }
 
-Future<void> showStudy(BuildContext context, int s, int a, {int tab = 0}) {
+Future<void> showStudy(BuildContext context, int s, int a, {int tab = -1}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -135,7 +135,7 @@ class _VerseActions extends StatelessWidget {
 }
 
 class StudyPanel extends StatefulWidget {
-  const StudyPanel({super.key, required this.s, required this.a, this.tab = 0});
+  const StudyPanel({super.key, required this.s, required this.a, this.tab = -1});
   final int s, a, tab;
 
   @override
@@ -143,7 +143,7 @@ class StudyPanel extends StatefulWidget {
 }
 
 class _StudyPanelState extends State<StudyPanel> {
-  late int tab = widget.tab;
+  late int tab = widget.tab >= 0 ? widget.tab : context.read<AppStore>().uiInt('studyTab', 0); // -1: the tab last used
   late int a = widget.a;
 
   @override
@@ -171,7 +171,10 @@ class _StudyPanelState extends State<StudyPanel> {
           ),
         ]),
       ),
-      Segmented(items: const ['Translation', 'Words', 'Tafsir', 'Notes'], index: tab, onChanged: (i) => setState(() => tab = i)),
+      Segmented(items: const ['Translation', 'Words', 'Tafsir', 'Notes'], index: tab, onChanged: (i) {
+        setState(() => tab = i);
+        context.read<AppStore>().setUiInt('studyTab', i);
+      }),
       const SizedBox(height: 10),
       Expanded(
         child: SingleChildScrollView(

@@ -11,6 +11,7 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/audio.dart';
+import 'core/audio_focus.dart';
 import 'core/content.dart';
 import 'core/downloads.dart';
 import 'core/perf.dart';
@@ -78,6 +79,7 @@ Future<void> main() async {
     );
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.setPosition(Offset(x, y));
+      if (store.uiInt('winMax', 0) == 1) await windowManager.maximize();
       await windowManager.show();
       await windowManager.focus();
     });
@@ -121,7 +123,8 @@ class _BootstrapState extends State<Bootstrap> {
             ChangeNotifierProvider<AudioController>(
               create: (_) {
                 final audio = AudioController(widget.store);
-                IqraMediaSession.start(audio); // the notification and lock-screen controls on Android
+                IqraMediaSession.start(audio);
+                AudioFocus.start(audio); // pause for calls and other apps, and when headphones are unplugged // the notification and lock-screen controls on Android
                 return audio;
               },
             ),

@@ -104,7 +104,7 @@ class TodayScreen extends StatelessWidget {
                   width: 140,
                   child: ArtTile(
                     surah: n,
-                    onOpen: () => openReader(context, surah: n, mushaf: false),
+                    onOpen: () => openReader(context, surah: n),
                     onPlay: () => context.read<AudioController>().playVerse(n, 1, scope: PlayScope.surah),
                   ),
                 ),
@@ -600,7 +600,7 @@ class _FridayCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Wrap(spacing: 10, runSpacing: 8, children: [
                   FilledButton(
-                    onPressed: () => openReader(context, surah: 18, mushaf: false),
+                    onPressed: () => openReader(context, surah: 18),
                     style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87, shape: const StadiumBorder()),
                     child: const Text('Read'),
                   ),

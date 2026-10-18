@@ -26,7 +26,7 @@ class TrackStream {
     final client = http.Client();
     try {
       final req = http.Request('GET', Uri.parse(url))..headers['Range'] = 'bytes=0-0';
-      final res = await client.send(req).timeout(const Duration(seconds: 12));
+      final res = await client.send(req).timeout(const Duration(seconds: 6));
       final range = res.headers['content-range'];
       var size = 0;
       if (range != null && range.contains('/')) {

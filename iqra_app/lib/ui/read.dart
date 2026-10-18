@@ -65,7 +65,7 @@ class _ReadScreenState extends State<ReadScreen> {
                 index: i % 12,
                 child: ArtTile(
                   surah: s.n,
-                  onOpen: () => openReader(context, surah: s.n, mushaf: false),
+                  onOpen: () => openReader(context, surah: s.n),
                   onPlay: () => context.read<AudioController>().playVerse(s.n, 1, scope: PlayScope.surah),
                   onMore: () => openReader(context, surah: s.n, mushaf: true),
                 ),
@@ -82,7 +82,7 @@ class _ReadScreenState extends State<ReadScreen> {
                 final juz = i + 1;
                 final start = Quran.I.juzStart(juz);
                 return Pressable(
-                  onTap: () => openReader(context, surah: start.surah, ayah: start.n, page: start.page, mushaf: true),
+                  onTap: () => openReader(context, surah: start.surah, ayah: start.n, page: start.page),
                   radius: 18,
                   hover: false,
                   scale: 0.97,
@@ -149,7 +149,7 @@ class _GoToState extends State<_GoTo> {
       showToast(context, 'That verse does not exist');
       return;
     }
-    openReader(context, surah: s, ayah: a, mushaf: false);
+    openReader(context, surah: s, ayah: a);
   }
 
   @override

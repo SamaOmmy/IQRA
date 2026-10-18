@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/phone.dart';
 import '../core/media_session.dart';
 import '../core/adhan.dart';
+import '../core/audio.dart';
 import '../core/notify.dart';
 import '../core/prayer.dart';
 import '../core/quran.dart';
@@ -408,6 +409,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () {
                     s.reciter = r.$1;
                     Navigator.of(ctx).pop();
+                    final au = context.read<AudioController>();
+                    final now = au.current;
+                    if (now != null && au.playing) au.playVerse(now.s, now.a); // carry on in the new voice
                   },
                 ),
             ]),

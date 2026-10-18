@@ -263,7 +263,7 @@ class CollectionScreen extends StatelessWidget {
               final sn = it['surah'] as int;
               final s = Quran.I.surah(sn);
               return _pad(Pressable(
-                onTap: () => openReader(context, surah: sn, mushaf: false),
+                onTap: () => openReader(context, surah: sn),
                 radius: 16,
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -502,7 +502,7 @@ class _SurahGuideScreenState extends State<SurahGuideScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Pressable(
-                onTap: () => openReader(context, surah: s.n, mushaf: false),
+                onTap: () => openReader(context, surah: s.n),
                 radius: 16,
                 child: Padding(
                   padding: const EdgeInsets.all(10),
