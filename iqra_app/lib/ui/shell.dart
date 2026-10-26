@@ -22,6 +22,8 @@ import 'read.dart';
 import 'search.dart';
 import 'settings.dart';
 import 'theme_wave.dart';
+import 'quick_access.dart';
+import 'update_banner.dart';
 import 'today.dart';
 import 'tools/tools.dart';
 import 'window_controls.dart';
@@ -90,6 +92,10 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
       Future<void>.delayed(const Duration(seconds: 4), () {
         if (mounted) context.read<UpdateChecker>().check();
       });
+      // a PC app can stay open for days: look again every hour (the check itself skips if it was done in the last three)
+      _updateTimer = Timer.periodic(const Duration(hours: 1), (_) {
+        if (mounted) context.read<UpdateChecker>().checkIfStale();
+      });
     });
   }
 
@@ -105,6 +111,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     _store.removeListener(_syncNotifications);
     _fade.dispose();
     _warmTimer?.cancel();
+    _updateTimer?.cancel();
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) windowManager.removeListener(this);
     super.dispose();
   }
@@ -138,7 +145,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
   final _visited = <Section>{Section.today};
 
   late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 260), value: 1);
-  Timer? _warmTimer;
+  Timer? _warmTimer, _updateTimer;
 
   /// Builds the other sections one at a time while the app is idle, so opening one later does not have to build it while it
   /// animates in (that first build is what made opening a page stutter).
@@ -268,6 +275,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
           child: Column(children: [
             const _TopBar(),
             Container(height: 0.6, color: c.separator),
+            if (_section != Section.today) const UpdateBanner(), // Today has its own, larger one
             Expanded(child: _body()),
           ]),
         ),
@@ -293,6 +301,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
               child: AnimatedSlide(offset: open > 0 ? const Offset(0, 1.2) : Offset.zero, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic, child: child),
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (_section != Section.today) const UpdateBanner(),
             const MiniPlayer(),
             Glass(
               blur: 30,
@@ -332,6 +341,7 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
           ]),
           ),
         ),
+        Positioned.fill(child: QuickAccess(onSearch: () => go(Section.search), onHome: () => go(Section.today), onSettings: () => go(Section.settings))),
       ]),
     );
   }

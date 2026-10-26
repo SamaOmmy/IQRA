@@ -95,6 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
               ]),
             ),
+            SwitchListTile(title: const Text('Quick access button'), subtitle: const Text('A small floating button on every screen of the phone: light/dark, search, home and settings. Drag it where you like.'), value: s.uiInt('qa', 1) == 1, onChanged: (v) => s.setUiInt('qa', v ? 1 : 0)),
             SwitchListTile(title: const Text('Gentle animations'), subtitle: const Text('Cards glide in, pages turn smoothly'), value: s.motion, onChanged: (v) => s.motion = v),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),

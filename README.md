@@ -25,7 +25,7 @@ The app tells you when a new version is out and updates itself with one tap: on 
 - **Tools**: prayer times for 240+ cities, your own location, or coordinates you enter, with 14 calculation methods and per-prayer minute adjustments of up to three hours either way (type any value); adhan and reminders on Android; a live qibla compass; tasbih; a Hijri calendar with the dates of the Prophet's life and Muslim history; a salah tracker; a quiz; a zakat calculator; a khatam plan.
 - **Library**: bookmarks, notes, memorised verses, reading streak, juz map and milestones.
 - **Search** across verses (Arabic with diacritics ignored, or any translation), surahs, stories, hadith and duas.
-- 62 translations in 40+ languages and six tafsirs; thirteen colour themes with a one-press light/dark switch that spreads across the screen like a wave, ten accent colours, sharing a verse as a picture (swipe through eight looks, send it to WhatsApp status, Instagram and other apps on Android, or copy it on PC), a collapsible sidebar on PC, smooth page transitions that you can switch off, backup and restore of your data, and a check for new versions.
+- 62 translations in 40+ languages and six tafsirs; thirteen colour themes with a one-press light/dark switch that spreads across the screen like a wave, ten accent colours, sharing a verse as a picture (swipe through eight looks, send it to WhatsApp status, Instagram and other apps on Android, or copy it on PC), a collapsible sidebar on PC, smooth page transitions that you can switch off, backup and restore of your data, and a check for new versions that shows on every screen, a floating quick-access button on the phone.
 
 ## Keyboard shortcuts (Windows)
 

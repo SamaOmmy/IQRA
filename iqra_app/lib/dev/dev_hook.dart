@@ -29,6 +29,7 @@ import '../ui/shell.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/audio.dart';
 import '../core/store.dart';
+import '../core/updates.dart';
 import 'package:provider/provider.dart';
 
 /// Debug builds only: lets a developer script drive the app and save screenshots of the app's own pixels.
@@ -206,6 +207,8 @@ class DevHook {
           final data = await img.toByteData(format: ui.ImageByteFormat.png);
           File('$dir${Platform.pathSeparator}iqra-${p[1]}.png').writeAsBytesSync(data!.buffer.asUint8List());
         }
+      case 'fakeupdate':
+        if (ctx != null) ctx.read<UpdateChecker>().debugOffer(p[1]);
       case 'pop':
         if (ctx != null) Navigator.of(ctx, rootNavigator: true).maybePop();
       case 'back':

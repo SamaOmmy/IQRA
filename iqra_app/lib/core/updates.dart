@@ -42,6 +42,24 @@ class UpdateChecker extends ChangeNotifier {
   Timer? _poll;
   bool _installWhenDone = false;
 
+  /// The person closed the notice for this run of the app (it comes back next time, and while a download is under way).
+  bool dismissed = false;
+  void dismiss() {
+    dismissed = true;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void debugOffer(String version) {
+    current = '3.7.0';
+    latest = version;
+    dismissed = false;
+    notifyListeners();
+  }
+
+  /// Whether the notice that sits on every screen should show.
+  bool get showBanner => available && !personal && (!dismissed || downloading || ready);
+
   bool get available => latest != null && current.isNotEmpty && _newer(latest!, current);
 
   /// A personal copy (it carries the licensed mushaf fonts): the public update does not have them, so it must never replace this one.
