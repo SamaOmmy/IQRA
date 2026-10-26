@@ -92,8 +92,8 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
       Future<void>.delayed(const Duration(seconds: 4), () {
         if (mounted) context.read<UpdateChecker>().check();
       });
-      // a PC app can stay open for days: look again every hour (the check itself skips if it was done in the last three)
-      _updateTimer = Timer.periodic(const Duration(hours: 1), (_) {
+      // a PC app can stay open for days: look again every half hour (the check itself skips if it was done more recently)
+      _updateTimer = Timer.periodic(const Duration(minutes: 30), (_) {
         if (mounted) context.read<UpdateChecker>().checkIfStale();
       });
     });
@@ -131,6 +131,9 @@ class AppShellState extends State<AppShell> with WindowListener, SingleTickerPro
     _store.saveWindowRect([b.left, b.top, b.width, b.height]);
   }
 
+  // the window brought to the front: the moment a person would notice a new version
+  @override
+  void onWindowFocus() => context.read<UpdateChecker>().checkIfStale();
   @override
   void onWindowMaximize() => _store.setUiInt('winMax', 1); // reopened maximised if it was left that way
   @override

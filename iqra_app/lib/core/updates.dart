@@ -77,10 +77,10 @@ class UpdateChecker extends ChangeNotifier {
 
   DateTime? _lastCheck;
 
-  /// Checks again if the last check was more than three hours ago.
+  /// Checks again if the last check was more than half an hour ago (a PC app can stay open for days).
   void checkIfStale() {
     final last = _lastCheck;
-    if (last == null || DateTime.now().difference(last) > const Duration(hours: 3)) check();
+    if (last == null || DateTime.now().difference(last) > const Duration(minutes: 30)) check();
   }
 
   Future<void> check({bool announce = false}) async {
