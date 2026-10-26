@@ -21,6 +21,7 @@ import 'player.dart';
 import 'read.dart';
 import 'search.dart';
 import 'settings.dart';
+import 'theme_wave.dart';
 import 'today.dart';
 import 'tools/tools.dart';
 import 'window_controls.dart';
@@ -450,6 +451,11 @@ class _Sidebar extends StatelessWidget {
             const Padding(padding: EdgeInsets.fromLTRB(24, 18, 12, 6), child: Align(alignment: Alignment.centerLeft, child: _GroupLabel('Library'))),
           item(Section.library),
           const Spacer(),
+          // light / dark at a press, the wave starts from here
+          Padding(
+            padding: EdgeInsets.only(left: collapsed ? 0 : 12, bottom: 2),
+            child: Align(alignment: collapsed ? Alignment.center : Alignment.centerLeft, child: const ThemeToggleButton()),
+          ),
           item(Section.settings),
           const SizedBox(height: 12),
         ]),

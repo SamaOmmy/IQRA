@@ -20,6 +20,7 @@ import '../core/updates.dart';
 import 'downloads_screen.dart';
 import 'page_scaffold.dart';
 import 'plan_screen.dart';
+import 'theme_wave.dart';
 import 'tools/prayer_screen.dart';
 import 'widgets.dart';
 
@@ -52,6 +53,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       slivers: [
         SliverToBoxAdapter(
           child: group('Theme', [
+            Builder(builder: (context) {
+              final dark = resolveTheme(s.theme, MediaQuery.platformBrightnessOf(context)).colors.dark;
+              return ListTile(
+                title: const Text('Dark mode'),
+                subtitle: Text(dark ? 'On. Tap to go back to a light look.' : 'Off. Tap for a dark look that is easier on the eyes at night.'),
+                trailing: const ThemeToggleButton(),
+                onTap: () => ThemeWave.run(context, () => s.toggleDark(MediaQuery.platformBrightnessOf(context))),
+              );
+            }),
+            const Divider1(indent: 16),
             Padding(
               padding: const EdgeInsets.all(14),
               child: Wrap(spacing: 12, runSpacing: 12, children: [
@@ -433,7 +444,7 @@ class _ThemeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => selected ? onTap() : ThemeWave.run(context, onTap),
       child: Column(children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),

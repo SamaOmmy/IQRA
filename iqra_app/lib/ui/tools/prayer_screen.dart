@@ -186,7 +186,7 @@ class _PrayerScreenState extends State<PrayerScreen> {
                   shape: const Border(),
                   collapsedShape: const Border(),
                   title: const Text('Adjust minutes', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('Match your local mosque timetable', style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
+                  subtitle: Text('Match your local mosque timetable. Hold a button for 5 minutes, tap the number to type it.', style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
                   children: [
                     for (final k in kPrayerKeys) _AdjustRow(k: k, store: store),
                     const SizedBox(height: 6),
@@ -220,11 +220,46 @@ class _AdjustRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final v = store.prayerAdjust[k] ?? 0;
+    // tap a button for one minute, hold it for five; tap the number to type any value
+    Widget step(IconData icon, int d) => GestureDetector(
+          onLongPress: () => store.setPrayerAdjust(k, v + d * 5),
+          child: IconButton(visualDensity: VisualDensity.compact, onPressed: v + d < -kMaxPrayerAdjust || v + d > kMaxPrayerAdjust ? null : () => store.setPrayerAdjust(k, v + d), icon: Icon(icon)),
+        );
     return Row(children: [
       Expanded(child: Text(kPrayerNames[k]!, style: const TextStyle(fontSize: 15))),
-      IconButton(visualDensity: VisualDensity.compact, onPressed: () => store.setPrayerAdjust(k, v - 1), icon: const Icon(Icons.remove_circle_outline_rounded)),
-      SizedBox(width: 60, child: Text(v == 0 ? '0 min' : '${v > 0 ? '+' : ''}$v min', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, color: v == 0 ? c.textSecondary : c.accent))),
-      IconButton(visualDensity: VisualDensity.compact, onPressed: () => store.setPrayerAdjust(k, v + 1), icon: const Icon(Icons.add_circle_outline_rounded)),
+      step(Icons.remove_circle_outline_rounded, -1),
+      InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _type(context),
+        child: SizedBox(width: 72, height: 36, child: Center(child: Text(v == 0 ? '0 min' : '${v > 0 ? '+' : ''}$v min', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, color: v == 0 ? c.textSecondary : c.accent)))),
+      ),
+      step(Icons.add_circle_outline_rounded, 1),
     ]);
+  }
+
+  Future<void> _type(BuildContext context) async {
+    final ctl = TextEditingController(text: '${store.prayerAdjust[k] ?? 0}');
+    final got = await showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        void done() => Navigator.pop(ctx, int.tryParse(ctl.text.trim().replaceFirst('+', '')));
+        return AlertDialog(
+          title: Text('Move ${kPrayerNames[k]!}'),
+          content: TextField(
+            controller: ctl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            decoration: InputDecoration(labelText: 'Minutes (−$kMaxPrayerAdjust to +$kMaxPrayerAdjust)', helperText: 'Negative is earlier, positive is later'),
+            onSubmitted: (_) => done(),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 0), child: const Text('Reset')),
+            FilledButton(onPressed: done, child: const Text('Set')),
+          ],
+        );
+      },
+    );
+    if (got != null) store.setPrayerAdjust(k, got);
   }
 }

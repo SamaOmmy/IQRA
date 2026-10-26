@@ -127,7 +127,7 @@ class _VerseActions extends StatelessWidget {
           Clipboard.setData(ClipboardData(text: verseShareText(ay, tr.text(ay))));
           showToast(context, 'Verse copied');
         }),
-        action(Icons.image_rounded, 'Share as image', () => showShareCard(context, arabic: ay.ar, translation: tr.text(ay), reference: '${sr.en} $s:$a')),
+        action(Icons.image_rounded, 'Share as image', () => showShareCard(context, arabic: ay.ar, translation: tr.text(ay), reference: '${sr.en} $s:$a', surah: s)),
         action(Icons.ios_share_rounded, 'Share text', () => SharePlus.instance.share(ShareParams(text: verseShareText(ay, tr.text(ay))))),
       ]),
     );
@@ -299,7 +299,7 @@ class _TafsirTab extends StatelessWidget {
           final text = ayah.n - 1 < snap.data!.length ? snap.data![ayah.n - 1] : '';
           return Directionality(
             textDirection: info.rtl ? TextDirection.rtl : TextDirection.ltr,
-            child: SelectableText(text.isEmpty ? 'No commentary for this verse in this tafsir.' : text, style: const TextStyle(fontSize: 16.5, height: 1.65)),
+            child: selectableText(text.isEmpty ? 'No commentary for this verse in this tafsir.' : text, style: const TextStyle(fontSize: 16.5, height: 1.65)),
           );
         },
       ),

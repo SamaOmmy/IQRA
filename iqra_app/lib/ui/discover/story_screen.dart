@@ -121,7 +121,7 @@ class StoryScreen extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              for (final p in paras) Padding(padding: const EdgeInsets.only(bottom: 14), child: SelectableText(p, style: const TextStyle(fontSize: 17, height: 1.62))),
+              for (final p in paras) Padding(padding: const EdgeInsets.only(bottom: 14), child: selectableText(p, style: const TextStyle(fontSize: 17, height: 1.62))),
             ]),
           ),
         ),
@@ -140,7 +140,7 @@ class StoryScreen extends StatelessWidget {
                       Expanded(child: Text(s['h'] as String, style: const TextStyle(fontSize: 18.5, fontWeight: FontWeight.w800, letterSpacing: -0.3))),
                     ]),
                     const SizedBox(height: 10),
-                    for (final t in (s['t'] as List)) Padding(padding: const EdgeInsets.only(bottom: 12), child: SelectableText(t as String, style: const TextStyle(fontSize: 16.5, height: 1.62))),
+                    for (final t in (s['t'] as List)) Padding(padding: const EdgeInsets.only(bottom: 12), child: selectableText(t as String, style: const TextStyle(fontSize: 16.5, height: 1.62))),
                   ]),
                 ),
               );

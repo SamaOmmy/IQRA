@@ -593,3 +593,7 @@ void showToast(BuildContext context, String message) {
       duration: const Duration(milliseconds: 1800),
     ));
 }
+
+/// Text the person can select and copy. Unlike [SelectableText] it has no scroller of its own, so a finger or touchpad drag on
+/// it still scrolls the page (the app's always-scrollable physics made the text's own scroller swallow the drag).
+Widget selectableText(String text, {TextStyle? style, TextAlign? textAlign}) => SelectionArea(child: Text(text, style: style, textAlign: textAlign));

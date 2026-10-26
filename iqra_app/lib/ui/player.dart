@@ -224,7 +224,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
       if (list[i] != list[i - 1] + 1) consecutive = false;
     }
     final ref = list.length == 1 ? '${sr.en} $surah:${list.first}' : (consecutive ? '${sr.en} $surah:${list.first}–${list.last}' : '${sr.en} $surah:${list.join(', ')}');
-    showShareCard(context, arabic: ayahs.map((a) => a.ar).join(' '), translation: ayahs.map((a) => tr.text(a)).join(' '), reference: ref);
+    showShareCard(context, arabic: ayahs.map((a) => a.ar).join(' '), translation: ayahs.map((a) => tr.text(a)).join(' '), reference: ref, surah: surah, subtitle: 'Recited by ${reciterName(context.read<AppStore>().reciter)}');
   }
 
   KeyEventResult _key(FocusNode n, KeyEvent e, AudioController audio) {

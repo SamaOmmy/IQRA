@@ -18,6 +18,7 @@ import 'core/perf.dart';
 import 'core/quran.dart';
 import 'core/store.dart';
 import 'core/theme.dart';
+import 'ui/theme_wave.dart';
 import 'core/translation.dart';
 import 'core/media_session.dart';
 import 'core/updates.dart';
@@ -190,7 +191,7 @@ class IqraApp extends StatelessWidget {
       title: 'IQRA',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(colors),
-      themeAnimationDuration: store.motion ? const Duration(milliseconds: 380) : Duration.zero,
+      themeAnimationDuration: store.motion && !ThemeWave.busy ? const Duration(milliseconds: 380) : Duration.zero,
       themeAnimationCurve: Curves.easeOut,
       scrollBehavior: const _Scroll(),
       builder: (context, child) => ValueListenableBuilder<double>(
@@ -200,7 +201,7 @@ class IqraApp extends StatelessWidget {
             // very large system fonts are capped so that fixed-size cards and rows keep their shape
             textScaler: TextScaler.linear((scale != 1 ? scale : MediaQuery.textScalerOf(context).scale(1.0)).clamp(0.85, 1.25).toDouble()),
           ),
-          child: RepaintBoundary(key: shotKey, child: child),
+          child: ThemeWaveHost(child: RepaintBoundary(key: shotKey, child: child)),
         ),
       ),
       home: const AppShell(),

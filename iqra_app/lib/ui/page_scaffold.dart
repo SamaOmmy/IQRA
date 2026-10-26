@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import 'settings.dart';
 import 'smooth_scroll.dart';
+import 'theme_wave.dart';
 import 'shell.dart';
 import 'widgets.dart';
 
@@ -62,6 +63,7 @@ class _LargePageState extends State<LargePage> {
                         icon: Icon(Icons.search_rounded, color: c.accent),
                         tooltip: 'Search',
                       ),
+                    if (!canPop && AppShell.of(context) != null && MediaQuery.of(context).size.width < 860) const ThemeToggleButton(color: null, size: 22),
                     if (!canPop && AppShell.of(context) != null && MediaQuery.of(context).size.width < 860)
                       IconButton(
                         onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),

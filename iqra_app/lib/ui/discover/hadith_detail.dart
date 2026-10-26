@@ -52,13 +52,13 @@ class HadithDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(24)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Directionality(textDirection: TextDirection.rtl, child: SelectableText(arabic, textAlign: TextAlign.center, style: TextStyle(fontFamily: kArabicFont, fontSize: 28, height: 2, color: c.text))),
+                Directionality(textDirection: TextDirection.rtl, child: selectableText(arabic, textAlign: TextAlign.center, style: TextStyle(fontFamily: kArabicFont, fontSize: 28, height: 2, color: c.text))),
                 const SizedBox(height: 16),
                 Container(height: 0.8, color: c.separator),
                 const SizedBox(height: 16),
                 Text('TRANSLATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2, color: c.accent)),
                 const SizedBox(height: 6),
-                SelectableText(summary, style: const TextStyle(fontSize: 17, height: 1.6)),
+                selectableText(summary, style: const TextStyle(fontSize: 17, height: 1.6)),
                 if (source != null) ...[
                   const SizedBox(height: 12),
                   Text(source!, style: TextStyle(color: c.accent, fontWeight: FontWeight.w700, fontSize: 13.5)),
@@ -136,7 +136,7 @@ class _Paras extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        for (final p in paras) Padding(padding: const EdgeInsets.only(bottom: 14), child: SelectableText(p, style: const TextStyle(fontSize: 16.5, height: 1.65))),
+        for (final p in paras) Padding(padding: const EdgeInsets.only(bottom: 14), child: selectableText(p, style: const TextStyle(fontSize: 16.5, height: 1.65))),
       ]),
     );
   }

@@ -810,7 +810,7 @@ class _SidePanel extends StatelessWidget {
             act(store.memorised.contains(key) ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded, 'Memorised', () => store.toggleMemorised(key), on: store.memorised.contains(key)),
             act(Icons.image_rounded, 'Share as image', () {
               final a = Quran.I.ayah(ref.s, ref.a);
-              showShareCard(context, arabic: a.ar, translation: context.read<TranslationModel>().text(a), reference: '${Quran.I.surah(ref.s).en} $key');
+              showShareCard(context, arabic: a.ar, translation: context.read<TranslationModel>().text(a), reference: '${Quran.I.surah(ref.s).en} $key', surah: ref.s);
             }),
             const Spacer(),
             IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded)),

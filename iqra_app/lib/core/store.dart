@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show Brightness;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'hijri_events.dart';
+import 'theme.dart';
 import 'quran.dart';
 
 class Place {
@@ -23,6 +25,9 @@ class Bookmark {
 }
 
 /// Everything the person changes: settings, bookmarks, notes, progress. Saved as one JSON document.
+/// The most a prayer time can be moved either way, in minutes (mosque timetables and local rules can differ by an hour or more).
+const kMaxPrayerAdjust = 180;
+
 class AppStore extends ChangeNotifier {
   AppStore._(this._prefs, Map<String, dynamic> j) : _j = j {
     hijriShiftDays = (j['hadj'] as num?)?.toInt() ?? 0;
@@ -52,7 +57,22 @@ class AppStore extends ChangeNotifier {
 
   // ---- appearance ----
   String get theme => _get('theme', 'auto');
-  set theme(String v) => _set('theme', v);
+  set theme(String v) {
+    if (v != 'auto') {
+      // remember the last light and the last dark theme, so the quick light/dark switch returns to the ones the person likes
+      final def = kThemes.where((t) => t.id == v);
+      if (def.isNotEmpty) _set(def.first.colors.dark ? 'lastDark' : 'lastLight', v);
+    }
+    _set('theme', v);
+  }
+  String get lastLight => _get('lastLight', 'light');
+  String get lastDark => _get('lastDark', 'dark');
+
+  /// The quick light/dark switch: the theme on the other side of the line, whatever the current one is (Auto included).
+  void toggleDark(Brightness system) {
+    final nowDark = resolveTheme(theme, system).colors.dark;
+    theme = nowDark ? lastLight : lastDark;
+  }
   int get accent => _get('accent', 0); // 0 = the theme's own colour, else ARGB
   set accent(int v) => _set('accent', v);
   // ---- how the person left the screens (the view they chose comes back as it was) ----
@@ -195,7 +215,7 @@ class AppStore extends ChangeNotifier {
   /// Minutes added to (or taken from) each calculated prayer time, for matching a local timetable.
   Map<String, int> get prayerAdjust => {for (final e in _get<Map>('padj', const {}).entries) e.key as String: (e.value as num).toInt()};
   void setPrayerAdjust(String key, int minutes) {
-    final m = prayerAdjust..[key] = minutes.clamp(-30, 30);
+    final m = prayerAdjust..[key] = minutes.clamp(-kMaxPrayerAdjust, kMaxPrayerAdjust);
     _set('padj', m);
   }
 
@@ -307,7 +327,7 @@ class AppStore extends ChangeNotifier {
   // ---- backup ----
   static const _backupKeys = [
     'bookmarks', 'favs', 'notes', 'memorised', 'pagesRead', 'days', 'khatams', 'salah', 'storiesRead', 'plan', 'goal',
-    'tasbihTotal', 'tasbihTarget', 'quizBest', 'recentSurahs', 'theme', 'accent', 'tr1', 'tafsir', 'reciter', 'place', 'pmethod',
+    'tasbihTotal', 'tasbihTarget', 'quizBest', 'recentSurahs', 'theme', 'lastLight', 'lastDark', 'accent', 'tr1', 'tafsir', 'reciter', 'place', 'pmethod',
     'hanafi', 'adhanSound', 'adhanFile', 'clock24', 'arSize', 'trSize', 'showTr', 'motion', 'review', 'dailyVerseAt', 'translit', 'planRead', 'adhan', 'padj', 'alertp', 'hadj', 'whole',
   ];
 

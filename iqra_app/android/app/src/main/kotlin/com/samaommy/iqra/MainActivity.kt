@@ -81,6 +81,19 @@ class MainActivity : AudioServiceActivity() {
                 result.error("download", e.message, null)
             }
         }
+        // Sharing a picture straight to WhatsApp, Instagram… and saving it to the gallery (see ShareTargets.kt).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iqra/share").setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "apps" -> result.success(ShareTargets.installed(this))
+                    "send" -> result.success(ShareTargets.send(this, call.argument<String>("path")!!, call.argument<String>("pkg"), call.argument<String>("text")))
+                    "save" -> result.success(ShareTargets.saveToGallery(this, call.argument<String>("path")!!, call.argument<String>("name")!!))
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) {
+                result.error("share", e.message, null)
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iqra/geo").setMethodCallHandler { call, result ->
             when (call.method) {
                 // Magnetic declination (the angle between magnetic and true north) for a place, from the device's own world magnetic model.

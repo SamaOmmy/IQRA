@@ -15,6 +15,7 @@ import '../ui/downloads_screen.dart';
 import '../ui/plan_screen.dart';
 import '../ui/review_screen.dart';
 import '../ui/share_card.dart';
+import '../ui/theme_wave.dart';
 import '../ui/settings.dart';
 import '../ui/tools/city_picker.dart';
 import '../ui/tools/prayer_screen.dart';
@@ -186,7 +187,7 @@ class DevHook {
       case 'citypicker':
         if (ctx != null) pickCity(ctx);
       case 'sharecard':
-        if (ctx != null) showShareCard(ctx, arabic: 'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ', translation: '[All] praise is [due] to Allah, Lord of the worlds', reference: 'Al-Faatiha 1:2');
+        if (ctx != null) showShareCard(ctx, arabic: 'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ', translation: '[All] praise is [due] to Allah, Lord of the worlds', reference: 'Al-Faatiha 1:2', surah: 1, subtitle: 'Recited by Mishary Alafasy');
       case 'mem':
         if (ctx != null) ctx.read<AppStore>().toggleMemorised('${p[1]}:${p[2]}');
       case 'wbw':
@@ -195,6 +196,16 @@ class DevHook {
         if (ctx != null) ctx.read<AppStore>().transliteration = p[1] == 'on';
       case 'review':
         if (ctx != null) Navigator.of(ctx).push(WidgetsPageRoute(const ReviewScreen()));
+      case 'wave':
+        if (ctx != null) ThemeWave.run(ctx, () => ctx.read<AppStore>().toggleDark(Brightness.light), at: Offset(double.parse(p[1]), double.parse(p[2])));
+      case 'wshot':
+        {
+          final b = ThemeWave.outer.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+          if (b == null) return;
+          final img = await b.toImage(pixelRatio: 1.0);
+          final data = await img.toByteData(format: ui.ImageByteFormat.png);
+          File('$dir${Platform.pathSeparator}iqra-${p[1]}.png').writeAsBytesSync(data!.buffer.asUint8List());
+        }
       case 'pop':
         if (ctx != null) Navigator.of(ctx, rootNavigator: true).maybePop();
       case 'back':
