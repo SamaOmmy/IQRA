@@ -4,6 +4,8 @@
 
 **IQRA** (اقرأ, "Read") is a free, open-source Qur'an app for **Windows PCs and Android phones**, built with Flutter. It has the Madani mushaf, Qur'an recitation audio, translations, tafsir, hadith, prayer times, qibla and adhan, with no ads and no account. The Qur'an, the stories, the hadith and the tools all work offline; only audio and extra translations are downloaded the first time you use them.
 
+*Website:* https://samaommy.github.io/IQRA/
+
 *Also searched as:* Quran app, Quran reader, Quran mushaf, Quran translation, tafsir, hadith, prayer times, adhan, qibla compass, Quran for PC, Quran for Android, تطبيق القرآن, مصحف المدينة, مواقيت الصلاة.
 
 ## Download

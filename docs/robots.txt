@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://samaommy.github.io/IQRA/sitemap.xml
