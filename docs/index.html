@@ -79,7 +79,8 @@
 :root{--bg:#faf7f0;--fg:#1d2b27;--mut:#5b6a65;--acc:#0f6b57;--card:#fff;--line:#e3ddcf}
 @media (prefers-color-scheme:dark){:root{--bg:#10201c;--fg:#e9efe9;--mut:#9fb3ab;--acc:#4fd1a9;--card:#17302a;--line:#254139}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html{-webkit-text-size-adjust:100%}
+body{overflow-x:hidden;margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:860px;margin:0 auto;padding:40px 16px 64px}
 header{text-align:center}
 header img{width:96px;height:96px;border-radius:22px}
@@ -94,7 +95,7 @@ h3{font-size:1.05rem;margin:18px 0 2px}
 .card h3{margin:0 0 4px;font-size:1.05rem}
 .card p{margin:0;color:var(--mut);font-size:.95rem}
 table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden}
-td,th{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:.95rem}
+td,th{overflow-wrap:anywhere;padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:.95rem}
 a{color:var(--acc)}
 .ar{direction:rtl;text-align:right;font-size:1.1rem}
 footer{margin-top:48px;color:var(--mut);font-size:.9rem;text-align:center}
